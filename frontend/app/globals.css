@@ -1,0 +1,48 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+:root {
+  --font-base: var(--font-asus);
+}
+
+.ant-menu-submenu-title {
+  color: #000000 !important;
+}
+
+.card-container {
+  @apply p-4 bg-[#ffffff] mb-[10px] rounded-[5px];
+}
+
+.margin-down {
+  margin-bottom: 10px;
+}
+
+.ant-tabs {
+  min-height: 0;
+}
+
+.ant-table-bordered .ant-table-cell {
+  border-inline-end: 2px solid #bfbfbf !important;
+  border-bottom: 2px solid #bfbfbf !important;
+}
+
+.ant-table-bordered .ant-table-thead > tr > th {
+  border-inline-end: 2px solid #bfbfbf !important;
+  border-bottom: 2px solid #bfbfbf !important;
+}
+
+.ant-table-bordered .ant-table-container {
+  border: 2px solid #bfbfbf !important;
+  border-radius: 6px !important;
+  overflow: hidden;
+}
+
+.ant-tabs-content-holder {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.ant-tabs-content {
+  height: 100%;
+}

@@ -1,0 +1,38 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-platform
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: app-platform
+  template:
+    metadata:
+      labels:
+        app: app-platform
+    spec:
+      containers:
+        - name: app-platform
+          image: app-platform:latest
+          imagePullPolicy: Never # use local image, don't pull from registry
+          ports:
+            - containerPort: 8000
+          env:
+            - name: HOST
+              value: 'http://your-backend-host'
+            - name: NODE_ENV
+              value: 'production'
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: app-platform
+spec:
+  type: NodePort
+  selector:
+    app: app-platform
+  ports:
+    - port: 8000
+      targetPort: 8000
+      nodePort: 30000

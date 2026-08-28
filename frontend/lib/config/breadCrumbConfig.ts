@@ -1,30 +1,22 @@
-const breadCrumbConfig = {
-  'module-a': {
-    name: 'ModuleA',
-    children: {
-      demo1: {
-        name: 'Demo1',
-        path: '/module-a/demo1',
-      },
-      demo2: {
-        name: 'Demo2',
-        path: '/module-a/demo2',
-      },
-    },
-  },
-  'module-b': {
-    name: 'ModuleB',
-    children: {
-      demo1: {
-        name: 'Demo1',
-        path: '/module-b/demo1',
-      },
-      demo2: {
-        name: 'Demo2',
-        path: '/module-b/demo2',
-      },
-    },
-  },
+import navConfig from './navConfig';
+
+type BreadCrumbNode = {
+  name: string;
+  path?: string;
+  children?: Record<string, BreadCrumbNode>;
 };
+
+// Derived from navConfig so nav items and breadcrumbs stay in sync from one source.
+const breadCrumbConfig: Record<string, BreadCrumbNode> = Object.fromEntries(
+  navConfig.map(section => [
+    section.key,
+    {
+      name: section.label,
+      children: Object.fromEntries(
+        section.children.map(child => [child.key, { name: child.label, path: child.path }])
+      ),
+    },
+  ])
+);
 
 export default breadCrumbConfig;

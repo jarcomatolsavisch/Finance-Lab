@@ -1,64 +1,37 @@
 'use client';
 
-import { MenuFoldOutlined, MenuUnfoldOutlined, ProductOutlined } from '@ant-design/icons';
+import { MenuFoldOutlined, MenuUnfoldOutlined } from '@ant-design/icons';
 import { Button, Layout, Menu } from 'antd';
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import navConfig from '@/lib/config/navConfig';
 
 export default function SideMenuLayout() {
   const [collapsed, setCollapsed] = useState(false);
   const pathname = usePathname();
 
-  const items = [
-    {
-      key: 'module-a',
-      label: 'ModuleA',
-      icon: <ProductOutlined />,
-      children: [
-        {
-          key: 'module-a-demo1',
-          label: <Link href="/module-a/demo1">Demo1</Link>,
-          href: '/module-a/demo1',
-        },
-        {
-          key: 'module-a-demo2',
-          label: <Link href="/module-a/demo2">Demo2</Link>,
-          href: '/module-a/demo2',
-        },
-      ],
-    },
-    {
-      key: 'module-b',
-      label: 'ModuleB',
-      icon: <ProductOutlined />,
-      children: [
-        {
-          key: 'module-b-demo1',
-          label: <Link href="/module-b/demo1">Demo1</Link>,
-          href: '/module-b/demo1',
-        },
-        {
-          key: 'module-b-demo2',
-          label: <Link href="/module-b/demo2">Demo2</Link>,
-          href: '/module-b/demo2',
-        },
-      ],
-    },
-  ];
+  const items = navConfig.map(section => ({
+    key: section.key,
+    label: section.label,
+    icon: section.icon ? <section.icon /> : undefined,
+    children: section.children.map(child => ({
+      key: `${section.key}-${child.key}`,
+      label: <Link href={child.path}>{child.label}</Link>,
+      href: child.path,
+    })),
+  }));
 
   const getDefaultOpenKeys = () => {
-    if (pathname && pathname.startsWith('/module-a')) return ['module-a'];
-    if (pathname && pathname.startsWith('/module-b')) return ['module-b'];
-    return [];
+    const section = navConfig.find(s => pathname && pathname.startsWith(`/${s.key}`));
+    return section ? [section.key] : [];
   };
 
   const getSelectedKey = () => {
-    if (pathname === '/module-a/demo1') return 'module-a-demo1';
-    if (pathname === '/module-a/demo2') return 'module-a-demo2';
-    if (pathname === '/module-b/demo1') return 'module-b-demo1';
-    if (pathname === '/module-b/demo2') return 'module-b-demo2';
-
+    for (const section of navConfig) {
+      const child = section.children.find(c => c.path === pathname);
+      if (child) return `${section.key}-${child.key}`;
+    }
     return '';
   };
 

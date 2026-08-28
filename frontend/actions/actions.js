@@ -13,3 +13,60 @@ export const getExampleData = async () => {
     return null;
   }
 };
+
+// GET /api/v1/tw/history/stock/price?id=0050,2308&start=2026-01-01&end=2026-03-01
+export const getTwStockPrices = async (ids, start, end) => {
+  const params = new URLSearchParams({ id: ids.join(','), start, end });
+
+  try {
+    const res = await fetch(`${HOST}/api/v1/tw/history/stock/price?${params.toString()}`, {
+      cache: 'no-store',
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      return { error: err.detail || `Request failed with status ${res.status}` };
+    }
+    return await res.json();
+  } catch (e) {
+    console.error('getTwStockPrices error:', e);
+    return { error: 'Failed to reach TW Stocks API' };
+  }
+};
+
+// GET /api/v1/tw/portfolio/efficient-frontier?id=0050,2308&start=2026-01-01&end=2026-03-01
+export const getEfficientFrontier = async (ids, start, end) => {
+  const params = new URLSearchParams({ id: ids.join(','), start, end });
+
+  try {
+    const res = await fetch(`${HOST}/api/v1/tw/portfolio/efficient-frontier?${params.toString()}`, {
+      cache: 'no-store',
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      return { error: err.detail || `Request failed with status ${res.status}` };
+    }
+    return await res.json();
+  } catch (e) {
+    console.error('getEfficientFrontier error:', e);
+    return { error: 'Failed to reach TW Stocks API' };
+  }
+};
+
+// GET /api/v1/tw/stocks/search?q=...
+export const searchTwStocks = async q => {
+  const params = new URLSearchParams({ q });
+
+  try {
+    const res = await fetch(`${HOST}/api/v1/tw/stocks/search?${params.toString()}`, {
+      cache: 'no-store',
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      return { error: err.detail || `Request failed with status ${res.status}` };
+    }
+    return await res.json();
+  } catch (e) {
+    console.error('searchTwStocks error:', e);
+    return { error: 'Failed to reach TW Stocks API' };
+  }
+};

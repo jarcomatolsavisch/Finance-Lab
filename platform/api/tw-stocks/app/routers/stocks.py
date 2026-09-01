@@ -63,6 +63,7 @@ def get_efficient_frontier(
     num_portfolios: int = Query(3000, ge=100, le=20000),
 ) -> EfficientFrontierResponse:
     stock_ids = [s.strip() for s in id.split(",") if s.strip()]
+    print(f"Fetching efficient frontier for stocks: {stock_ids}, from {start} to {end}, with {num_portfolios} portfolios.")
     if len(stock_ids) < 2:
         raise HTTPException(status_code=400, detail="id must contain at least 2 stock ids")
     if start > end:

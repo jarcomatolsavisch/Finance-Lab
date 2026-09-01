@@ -1,5 +1,7 @@
-dotenv
-tejapi==0.1.31
+python-dotenv
+FinMind
+yfinance
+scipy
 pandas==3.0.5
 numpy==2.5.2
 matplotlib==3.11.1

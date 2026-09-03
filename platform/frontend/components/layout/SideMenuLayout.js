@@ -23,7 +23,9 @@ export default function SideMenuLayout() {
   }));
 
   const getDefaultOpenKeys = () => {
-    const section = navConfig.find(s => pathname && pathname.startsWith(`/${s.key}`));
+    const section = navConfig.find(
+      s => pathname && s.children.some(c => pathname === c.path || pathname.startsWith(`${c.path}/`))
+    );
     return section ? [section.key] : [];
   };
 

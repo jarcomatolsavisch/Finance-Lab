@@ -30,7 +30,7 @@ const HeaderLayout = () => {
                   marginLeft: 20,
                 }}
               >
-                App Platform
+                Stock Lab
               </Typography.Title>
             </Link>
           </Flex>

@@ -1,14 +1,16 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, Button, Card, Form, Select, DatePicker, Spin, Empty } from 'antd';
+import { Alert, Button, Card, Flex, Row, Select, DatePicker, Spin, Empty, Typography } from 'antd';
 import { Scatter } from '@ant-design/plots';
+import { Controller, useForm } from 'react-hook-form';
 import dayjs from 'dayjs';
 import { getEfficientFrontier, searchTwStocks } from '@/actions/actions';
+import ResponsiveCol from '@/components/common/ResponsiveCol';
 
 const { RangePicker } = DatePicker;
 
-const DEFAULT_RANGE = [dayjs().subtract(1, 'month'), dayjs()];
+const DEFAULT_RANGE = [dayjs().subtract(12, 'month'), dayjs()];
 const SEARCH_DEBOUNCE_MS = 300;
 
 const ROLE_LABELS = {
@@ -18,7 +20,12 @@ const ROLE_LABELS = {
 };
 
 export default function Page() {
-  const [form] = Form.useForm();
+  const {
+    control,
+    handleSubmit,
+    formState: { errors },
+  } = useForm({ defaultValues: { stocks: [], range: DEFAULT_RANGE } });
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [frontierResult, setFrontierResult] = useState(null);
@@ -58,7 +65,7 @@ export default function Page() {
     };
   }, []);
 
-  const handleSubmit = async values => {
+  const onSubmit = async values => {
     const { stocks, range } = values;
     setLoading(true);
     setError(null);
@@ -103,55 +110,69 @@ export default function Page() {
   }, [frontierResult, stockNames]);
 
   return (
-    <div className="w-full">
-      <Card title="投資組合分析" className="mb-4">
-        <Form
-          form={form}
-          layout="vertical"
-          initialValues={{ stocks: [], range: DEFAULT_RANGE }}
-          onFinish={handleSubmit}
-        >
-          <Form.Item
-            name="stocks"
-            label="股票"
-            rules={[
-              {
-                validator: (_, value) =>
-                  value && value.length >= 2
-                    ? Promise.resolve()
-                    : Promise.reject(new Error('請選擇至少 2 檔股票')),
-              },
-            ]}
-          >
-            <Select
-              mode="multiple"
-              showSearch
-              filterOption={false}
-              onSearch={handleSearch}
-              options={options}
-              loading={searching}
-              placeholder="輸入股票代號或名稱搜尋（至少選擇 2 檔）"
-              notFoundContent={searching ? <Spin size="small" /> : null}
-            />
-          </Form.Item>
-          <Form.Item label="日期區間">
-            <Form.Item
-              name="range"
-              rules={[{ required: true, message: '請選擇日期區間' }]}
-              noStyle
-            >
-              <RangePicker disabledDate={current => current && current > dayjs().endOf('day')} />
-            </Form.Item>
-            <Button type="primary" htmlType="submit" loading={loading} className="ml-2">
-              計算效率前緣
-            </Button>
-          </Form.Item>
-        </Form>
+    <div className="w-full h-full flex flex-col">
+      <Card title="效率前緣分析" className="mb-4">
+        <form onSubmit={handleSubmit(onSubmit)}>
+          <Flex vertical gap={15}>
+            <Row gutter={[10, 15]} align="bottom">
+              <ResponsiveCol span={3}>
+                <Flex Horizontal gap={15} align="center">
+                  <Typography.Text>股票</Typography.Text> 
+                  {errors.stocks && <Typography.Text type="danger">* {errors.stocks.message}</Typography.Text>}
+                </Flex>
+                <Controller
+                  control={control}
+                  name="stocks"
+                  rules={{ validate: value => (value && value.length >= 2) || '請選擇至少 2 檔股票' }}
+                  render={({ field }) => (
+                    <Select
+                      {...field}
+                      mode="multiple"
+                      showSearch
+                      filterOption={false}
+                      onSearch={handleSearch}
+                      options={options}
+                      loading={searching}
+                      placeholder="輸入股票代號或名稱搜尋（至少選擇 2 檔）"
+                      notFoundContent={searching ? <Spin size="small" /> : null}
+                      style={{ width: '100%' }}
+                    />
+                  )}
+                />
+              </ResponsiveCol>
+              <ResponsiveCol span={5}>
+                <Typography.Text>日期區間</Typography.Text>
+                <Controller
+                  control={control}
+                  name="range"
+                  rules={{ required: '請選擇日期區間' }}
+                  render={({ field }) => (
+                    <RangePicker
+                      {...field}
+                      disabledDate={current => current && current > dayjs().endOf('day')}
+                      style={{ width: '100%' }}
+                    />
+                  )}
+                />
+                {errors.range && <Typography.Text type="danger">{errors.range.message}</Typography.Text>}
+              </ResponsiveCol>
+
+              <ResponsiveCol span={5}>
+                <Button type="primary" htmlType="submit" loading={loading}>
+                  計算效率前緣
+                </Button>
+              </ResponsiveCol>
+            </Row>
+          </Flex>
+        </form>
       </Card>
 
       {error && <Alert type="error" message={error} showIcon className="mb-4" />}
 
-      <Card title="效率前緣 (Efficient Frontier)">
+      <Card
+        className="flex-1 mb-[50px]"
+        styles={{ body: { height: '100%', overflow: 'auto' } }}
+      >
         <Spin spinning={loading}>
           {displayData.length > 0 ? (
             <Scatter

@@ -52,6 +52,26 @@ export const getEfficientFrontier = async (ids, start, end) => {
   }
 };
 
+// POST /api/v1/tw/stock/technical/indicators
+export const getTechnicalIndicators = async (stockId, start, end, indicators) => {
+  try {
+    const res = await fetch(`${HOST}/api/v1/tw/stock/technical/indicators`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ stock_id: stockId, start, end, indicators }),
+      cache: 'no-store',
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      return { error: err.detail || `Request failed with status ${res.status}` };
+    }
+    return await res.json();
+  } catch (e) {
+    console.error('getTechnicalIndicators error:', e);
+    return { error: 'Failed to reach TW Stocks API' };
+  }
+};
+
 // GET /api/v1/tw/stocks/search?q=...
 export const searchTwStocks = async q => {
   const params = new URLSearchParams({ q });

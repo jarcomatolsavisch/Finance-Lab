@@ -5,9 +5,9 @@ const ResponsiveCol = ({ children, span, style, ...restProps }) => {
       case 2:
         return { xs: 24, sm: 24, md: 24, lg: 24 };
       case 3:
-        return { xs: 24, sm: 16, md: 8, lg: 8 };
+        return { xs: 24, sm: 24, md: 12, lg: 12 };
       case 4:
-        return { xs: 24, sm: 12, md: 6, lg: 6 };
+        return { xs: 24, sm: 12, md: 8, lg: 8 };
       case 5:
         return { xs: 24, sm: 8, md: 6, lg: 6 };
       case 6:

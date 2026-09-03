@@ -1,7 +1,7 @@
 'use client';
 import { Breadcrumb } from 'antd';
 import Link from 'next/link';
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { usePathname } from 'next/navigation';
 import { HomeOutlined } from '@ant-design/icons';
 import breadCrumbConfig from '@/lib/config/breadCrumbConfig';
@@ -12,23 +12,14 @@ const BreadCrumb = () => {
   const [breadcrumb, setBreadcrumb] = useState([]);
 
   const genBreadCrumbList = path => {
-    const pathArray = path.split('/').filter(p => p);
     const breadcrumbArray = [{ title: <HomeOutlined />, path: '/' }];
 
-    const findPath = (currentMap, segments) => {
-      if (!segments.length) return;
+    const entry = breadCrumbConfig[path];
+    if (entry) {
+      breadcrumbArray.push({ title: entry.sectionLabel });
+      breadcrumbArray.push({ title: entry.label, path: entry.path });
+    }
 
-      const segment = segments.shift();
-      if (currentMap[segment]) {
-        const currentSegment = currentMap[segment];
-        if (currentSegment.name) {
-          breadcrumbArray.push({ title: currentSegment.name, path: currentSegment.path });
-        }
-        findPath(currentSegment.children || {}, segments);
-      }
-    };
-    //console.log(pathArray);
-    findPath(breadCrumbConfig, pathArray);
     return breadcrumbArray;
   };
 

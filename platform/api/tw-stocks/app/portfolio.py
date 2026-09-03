@@ -3,6 +3,7 @@ from datetime import date
 import numpy as np
 import pandas as pd
 
+from app.errors import InvalidValueError
 from app.finmind_client import get_loader
 
 TRADING_DAYS_PER_YEAR = 252
@@ -73,7 +74,7 @@ def simulate_efficient_frontier(
     prices = fetch_close_prices(stock_ids, start, end)
     daily_returns = prices.pct_change().dropna()
     if daily_returns.empty:
-        raise ValueError("Not enough price data in the given date range to compute returns")
+        raise InvalidValueError("Not enough price data in the given date range to compute returns")
 
     tickers = daily_returns.columns.tolist()
     mean_returns = daily_returns.mean().values

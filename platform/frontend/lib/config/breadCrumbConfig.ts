@@ -1,22 +1,21 @@
 import navConfig from './navConfig';
 
-type BreadCrumbNode = {
-  name: string;
-  path?: string;
-  children?: Record<string, BreadCrumbNode>;
+type BreadCrumbEntry = {
+  sectionLabel: string;
+  label: string;
+  path: string;
 };
 
 // Derived from navConfig so nav items and breadcrumbs stay in sync from one source.
-const breadCrumbConfig: Record<string, BreadCrumbNode> = Object.fromEntries(
-  navConfig.map(section => [
-    section.key,
-    {
-      name: section.label,
-      children: Object.fromEntries(
-        section.children.map(child => [child.key, { name: child.label, path: child.path }])
-      ),
-    },
-  ])
+// Keyed by each child's URL path (not by section/child key) since a nav module's
+// key is a logical grouping and doesn't necessarily match the URL's path segments.
+const breadCrumbConfig: Record<string, BreadCrumbEntry> = Object.fromEntries(
+  navConfig.flatMap(section =>
+    section.children.map(child => [
+      child.path,
+      { sectionLabel: section.label, label: child.label, path: child.path },
+    ])
+  )
 );
 
 export default breadCrumbConfig;

@@ -1,20 +1,12 @@
 'use client';
 
-import { Form, Radio, Typography } from 'antd';
+import { Form, Typography } from 'antd';
 import { PRICE_MA_M_CONSTRAINTS } from '../../lib/config';
 import NumberListInput from '../NumberListInput';
 
-// Price/MA control panel: price appearance (candlestick/close) + up to 3 MA periods.
-// See platform/docs/TechAnalysisSpec.md 7.1.
+// Price/MA control panel: K 線圖 + up to 3 MA periods. See platform/docs/TechAnalysisSpec.md 7.1.
 const PriceMAPanel = ({ config, error, onChange, onErrorChange }) => (
   <div>
-    <Form.Item label="價格外觀" className="mb-2">
-      <Radio.Group value={config.priceType} onChange={e => onChange({ priceType: e.target.value })}>
-        <Radio value="candlestick">K 線圖</Radio>
-        <Radio value="close">收盤價</Radio>
-      </Radio.Group>
-    </Form.Item>
-
     <Form.Item
       label="MA 週期（逗號分隔，最多 3 個，2~90）"
       validateStatus={error ? 'error' : undefined}

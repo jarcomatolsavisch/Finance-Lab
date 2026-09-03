@@ -56,12 +56,14 @@ Stock:
 
 ## Step 4 — 顯示 Default Chart
 
-查詢完成後，預設顯示兩個 Chart：
+查詢完成後，預設顯示**全部四種** Chart，皆帶入各自的預設參數：
 
-- **Price/MA**（預設價格外觀：K 線圖；預設疊加一條 `MA_20`，見第 7.1 節）
+- **Price/MA**（K 線圖；預設疊加一條 `MA_20`，見第 7.1 節）
 - **Volume**
+- **MACD**（`M=12, N=26, K=9`，見第 7.3 節）
+- **Bollinger Bands**（`M=20, std=[2]`，見第 7.4 節）
 
-MACD 與 Bollinger Bands 預設**不**顯示，需使用者主動於 Drawer 開啟。
+使用者可於 Drawer 依需要取消勾選任一 Chart。
 
 Chart Layout（預設）：
 
@@ -74,6 +76,12 @@ Chart Layout（預設）：
 ├─────────────────────────────┤
 │ Volume                      │
 │ █ ███ ██ █████ ███          │
+├─────────────────────────────┤
+│ MACD                        │
+│ ...                         │
+├─────────────────────────────┤
+│ Bollinger Bands              │
+│ Candlestick + Bands          │
 └─────────────────────────────┘
 ```
 
@@ -85,10 +93,10 @@ Chart Layout（預設）：
 
 | Chart 類型 | Pane | Y 軸 Scale | 內容 |
 |---|---|---|---|
-| **Price/MA** | 獨立 Pane（Base Chart） | 價格 | K 線／收盤價線，疊加 0～3 條 MA 線 |
+| **Price/MA** | 獨立 Pane（Base Chart） | 價格 | K 線圖，疊加 0～3 條 MA 線 |
 | **Volume** | 獨立 Pane（Base Chart） | 成交量 | 成交量長條圖 |
 | **MACD** | 獨立 Pane（Indicator） | 獨立量級 | MACD Line／Signal Line／Histogram |
-| **Bollinger Bands** | 獨立 Pane（Indicator） | 價格 | K 線／收盤價線，疊加上／中／下軌 |
+| **Bollinger Bands** | 獨立 Pane（Indicator） | 價格 | K 線圖，疊加上／中／下軌 |
 
 所有已顯示的 Pane 皆：
 
@@ -96,7 +104,7 @@ Chart Layout（預設）：
 - 共用 Zoom
 - 共用 Crosshair（時間位置同步）
 
-> **設計決定**：Price/MA 與 Bollinger Bands 是兩個**各自獨立**的 Pane，而非像 v1 那樣把 MA 與 Bollinger Bands 都疊加在同一個 Price Pane 上。兩者各自擁有自己的「價格外觀」設定（K 線／收盤價），彼此互不影響，也可以選擇顯示不同的外觀（例如 Price/MA 用 K 線、Bollinger Bands 用收盤價線）。此決定使四種 Chart 類型在 UI 上完全對等、獨立開關，簡化多選器與面板的心智模型；代價是同時開啟兩者時，價格會重複顯示兩次。若不希望有此重複，之後可考慮改回 v1 的疊加設計，但需另行確認。
+> **設計決定**：Price/MA 與 Bollinger Bands 是兩個**各自獨立**的 Pane，而非像 v1 那樣把 MA 與 Bollinger Bands 都疊加在同一個 Price Pane 上。兩者都固定以 K 線圖顯示價格（不再提供收盤價線的切換選項），彼此互不影響。此決定使四種 Chart 類型在 UI 上完全對等、獨立開關，簡化多選器與面板的心智模型；代價是同時開啟兩者時，價格會重複顯示兩次（且外觀相同）。若不希望有此重複，之後可考慮改回 v1 的疊加設計，但需另行確認。
 
 未來如需擴充 RSI／KD 等 Oscillator 指標，比照 MACD 的模式：新增一個固定的 Chart 類型選項＋對應獨立 Pane＋對應控制面板。
 
@@ -129,13 +137,11 @@ UI Concept：
 │                           │
 │ 顯示的 Chart               │
 │ ☑ Price/MA  ☑ Volume     │
-│ ☐ MACD      ☐ Bollinger  │
+│ ☑ MACD      ☑ Bollinger  │
 │                           │
 │ ───────────────────────   │
 │                           │
 │ ▼ Price/MA                │
-│   價格外觀                 │
-│   ● K 線圖   ○ 收盤價      │
 │   MA 週期（逗號分隔，最多3個）│
 │   [ 10,30 ]               │
 │                           │
@@ -159,7 +165,7 @@ UI Concept：
 Price/MA ｜ Volume ｜ MACD ｜ Bollinger Bands
 ```
 
-- **預設勾選**：`Price/MA`、`Volume`。
+- **預設勾選**：全部四種（`Price/MA`、`Volume`、`MACD`、`Bollinger Bands`）。
 - 勾選某個 Chart → 立即在多選器下方**建立**對應的控制面板，並帶入該類型的**預設參數**（見第 7 節）。
 - 取消勾選某個 Chart → 立即**移除**對應的控制面板。
 - 這些變動只更新 `draftConfig`（面板的顯示/隱藏、Drawer 內容），**不會**立即影響主畫面的 Chart，也不會觸發 Backend 請求；必須等使用者按下「套用」才會反映到主畫面（見第 9 節「Draft Before Apply」）。
@@ -175,15 +181,13 @@ Price/MA ｜ Volume ｜ MACD ｜ Bollinger Bands
 ┌──────────────────────┐
 │ Price/MA              │
 │                      │
-│ 價格外觀               │
-│ ● K 線圖   ○ 收盤價    │
-│                      │
 │ MA 週期（逗號分隔）      │
 │ [ 10,30 ]             │
 └──────────────────────┘
 ```
 
-- **價格外觀**（單選）：`K 線圖`（Candlestick）／`收盤價`（Close Price）。預設：`K 線圖`。
+價格固定以 K 線圖顯示（不提供收盤價線切換）。
+
 - **MA 週期（`M`）**：逗號分隔的數字列表，例如 `10,30`。
   - 最多 **3** 個數值。
   - 每個數值範圍 **2 ～ 90**（整數）。
@@ -228,9 +232,6 @@ Price/MA ｜ Volume ｜ MACD ｜ Bollinger Bands
 ┌──────────────────────┐
 │ Bollinger Bands        │
 │                      │
-│ 價格外觀               │
-│ ● K 線圖   ○ 收盤價    │
-│                      │
 │ MA 週期 M    [ 20 ]    │
 │                      │
 │ 標準差倍數（逗號分隔）    │
@@ -238,7 +239,8 @@ Price/MA ｜ Volume ｜ MACD ｜ Bollinger Bands
 └──────────────────────┘
 ```
 
-- **價格外觀**：與 Price/MA 面板相同的單選（K 線圖／收盤價），**各自獨立設定**（兩個面板的價格外觀可以不同）。預設：`K 線圖`。
+價格固定以 K 線圖顯示，與 Price/MA 面板相同（不提供收盤價線切換）。
+
 - **M（移動平均週期）**：單一整數，範圍 **2 ～ 90**。對應中軌 `BOLL_MID`。
 - **標準差倍數（`std`）**：逗號分隔的數字列表，例如 `1.5,2`。
   - 最多 **3** 個數值，至少 **1** 個（Bollinger Bands 圖表的核心即上下軌，不允許清空）。
@@ -292,7 +294,7 @@ Drawer 內所有操作（勾選/取消勾選 Chart、修改任何面板參數）
 | MACD | 若已勾選 → `{ type: "MACD", params: { M, N, K } }` |
 | Bollinger Bands | 若已勾選 → `{ type: "BOLL", params: { M, std } }` |
 
-未勾選的 Chart 類型不出現在請求中。Price/MA 的價格外觀與 Volume 的顯示與否本身不影響請求內容（純顯示層面的選項，不需要指標運算）。
+未勾選的 Chart 類型不出現在請求中。Volume 的顯示與否本身不影響請求內容（純顯示層面的選項，不需要指標運算）。
 
 換言之：
 - 勾選/取消勾選 Chart、調整參數 → 只更新 `draftConfig`，不觸發請求。
@@ -362,23 +364,21 @@ error
   charts: {
     priceMA: {
       enabled: true,
-      priceType: "candlestick", // "candlestick" | "close"
-      M: [20]                   // 0~3 個整數，預設顯示一條 20 日均線
+      M: [20]                   // 0~3 個整數，預設顯示一條 20 日均線；價格固定為 K 線圖
     },
     volume: {
       enabled: true
     },
     macd: {
-      enabled: false,
+      enabled: true,
       M: 12,
       N: 26,
       K: 9
     },
     boll: {
-      enabled: false,
-      priceType: "candlestick",
+      enabled: true,
       M: 20,
-      std: [2]                  // 1~3 個數字
+      std: [2]                  // 1~3 個數字；價格固定為 K 線圖
     }
   }
 }
@@ -392,10 +392,10 @@ Backend 回應格式為單一寬表格（`columns` 為欄位名稱陣列，`data
 
 | Chart | 使用欄位 | 說明 |
 |---|---|---|
-| **Price/MA** | `DATE`；價格外觀＝K 線圖時取 `OPEN, MAX, MIN, CLOSE`，＝收盤價時只取 `CLOSE`；疊加線：draft `M` 列表中每個 `m` 對應一條 `MA_<m>` | `MA_<m>` 為 `null` 的前導區段（rolling window 尚未足夠）不畫線／視為資料缺失 |
+| **Price/MA** | `DATE`, `OPEN`, `MAX`, `MIN`, `CLOSE`（K 線圖，固定）；疊加線：draft `M` 列表中每個 `m` 對應一條 `MA_<m>` | `MA_<m>` 為 `null` 的前導區段（rolling window 尚未足夠）不畫線／視為資料缺失 |
 | **Volume** | `DATE`, `TRADING_VOLUME` | 可選：以 `CLOSE` 與 `OPEN`（或前一日 `CLOSE`）比較決定長條顏色（漲／跌） |
 | **MACD** | `DATE`, `MACD_DIF`, `MACD_SIGNAL`, `MACD_HISTOGRAM` | `MACD_DIF`/`MACD_SIGNAL` 畫線，`MACD_HISTOGRAM` 畫柱狀圖，三者共用同一個獨立 Y 軸 |
-| **Bollinger Bands** | `DATE`；價格外觀同 Price/MA 邏輯（`OPEN, MAX, MIN, CLOSE` 或僅 `CLOSE`）；疊加：`BOLL_MID`，以及 draft `std` 列表中每個 `s` 對應 `BOLL_UPPER_<s>` / `BOLL_LOWER_<s>` | 上下軌通常以區間填色（band area）呈現，中軌畫單線 |
+| **Bollinger Bands** | `DATE`, `OPEN`, `MAX`, `MIN`, `CLOSE`（K 線圖，固定，同 Price/MA）；疊加：`BOLL_MID`，以及 draft `std` 列表中每個 `s` 對應 `BOLL_UPPER_<s>` / `BOLL_LOWER_<s>` | 上下軌通常以區間填色（band area）呈現，中軌畫單線 |
 
 > 欄位名稱中的 `std` 小數點以 `p` 表示（例：`1.5` → `BOLL_UPPER_1p5`），前端在組欄位名時需比照 `FunctionSpec.md` 1.4 節的規則轉換。
 

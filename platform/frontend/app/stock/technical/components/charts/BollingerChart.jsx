@@ -2,46 +2,56 @@
 
 import { useEffect, useRef } from 'react';
 import { Card } from 'antd';
-import { createChart, CandlestickSeries, LineSeries } from 'lightweight-charts';
+import { createChart, CandlestickSeries, LineSeries, LineStyle } from 'lightweight-charts';
 import ChartFrame from './ChartFrame';
 import { DOWN_COLOR, LINE_COLORS, UP_COLOR, fmt, isOutOfBounds, legendSwatch, positionTooltip } from './chartUtils';
 
 const HEIGHT = 450;
+const MID_COLOR = '#9e9e9e';
 
 const toCandlePoints = data =>
   data
     .filter(row => row.OPEN != null && row.MAX != null && row.MIN != null && row.CLOSE != null)
     .map(row => ({ time: row.DATE, open: row.OPEN, high: row.MAX, low: row.MIN, close: row.CLOSE }));
 
-// Discover which MA_<m> columns are present directly from the data, sorted by period —
-// no need to thread `config.M` through just to know which lines exist (see lib/chartData.js).
-const findMaKeys = data => {
-  const keys = new Set();
-  data.forEach(row => Object.keys(row).forEach(key => key.startsWith('MA_') && keys.add(key)));
-  return [...keys].sort((a, b) => Number(a.slice(3)) - Number(b.slice(3)));
-};
-
 const toLinePoints = (data, key) =>
   data.filter(row => row[key] != null).map(row => ({ time: row.DATE, value: row[key] }));
 
-// Price/MA chart: candlestick + MA overlay lines, built with lightweight-charts (TradingView).
-// `config` isn't used yet — this is candlestick-only, no price-appearance switch yet.
-const PriceMAChart = ({ data }) => {
+// Discover which std multipliers are present from the BOLL_UPPER_<std> keys in the data —
+// no need to thread `config.std` through just to know which band pairs exist.
+const findStdSuffixes = data => {
+  const suffixes = new Set();
+  data.forEach(row =>
+    Object.keys(row).forEach(key => {
+      const match = key.match(/^BOLL_UPPER_(.+)$/);
+      if (match) suffixes.add(match[1]);
+    })
+  );
+  return [...suffixes].sort((a, b) => Number(a.replace('p', '.')) - Number(b.replace('p', '.')));
+};
+
+// Bollinger Bands chart: candlestick + mid band + one upper/lower pair per std multiplier,
+// built with lightweight-charts. `config` isn't used yet — candlestick-only for now, same
+// as PriceMAChart.
+const BollingerChart = ({ data }) => {
   const containerRef = useRef(null);
   const legendRef = useRef(null);
   const tooltipRef = useRef(null);
 
   const chartRef = useRef(null);
   const candleSeriesRef = useRef(null);
-  const maSeriesRef = useRef([]); // [{ key, color, series }]
+  const midSeriesRef = useRef(null);
+  const bandSeriesRef = useRef([]); // [{ suffix, color, upper, lower }]
 
-  // Static — just which MA lines exist and their colors, not their values. Refreshed
-  // whenever the MA lines themselves change (see the data effect below), not on hover.
   const updateLegend = () => {
     const legend = legendRef.current;
     if (!legend) return;
 
-    legend.innerHTML = maSeriesRef.current.map(({ key, color }) => `<div>${legendSwatch(color)}${key}</div>`).join('');
+    const rows = [`<div>${legendSwatch(MID_COLOR)}BOLL_MID</div>`];
+    bandSeriesRef.current.forEach(({ suffix, color }) => {
+      rows.push(`<div>${legendSwatch(color)}BOLL ±${suffix.replace('p', '.')}</div>`);
+    });
+    legend.innerHTML = rows.join('');
   };
 
   const updateTooltip = param => {
@@ -56,10 +66,12 @@ const PriceMAChart = ({ data }) => {
       return;
     }
 
-    const maRows = maSeriesRef.current
-      .map(({ key, color, series }) => {
-        const point = param.seriesData.get(series);
-        return `<div>${legendSwatch(color)}${key}：${fmt(point?.value)}</div>`;
+    const mid = param.seriesData.get(midSeriesRef.current);
+    const bandRows = bandSeriesRef.current
+      .map(({ suffix, color, upper, lower }) => {
+        const upperPoint = param.seriesData.get(upper);
+        const lowerPoint = param.seriesData.get(lower);
+        return `<div>${legendSwatch(color)}±${suffix.replace('p', '.')}：${fmt(upperPoint?.value)} / ${fmt(lowerPoint?.value)}</div>`;
       })
       .join('');
 
@@ -70,7 +82,8 @@ const PriceMAChart = ({ data }) => {
       <div>收盤 Close：${fmt(candle.close)}</div>
       <div>最高 MAX：${fmt(candle.high)}</div>
       <div>最低 MIN：${fmt(candle.low)}</div>
-      ${maRows}
+      <div>${legendSwatch(MID_COLOR)}BOLL_MID：${fmt(mid?.value)}</div>
+      ${bandRows}
     `;
     positionTooltip(tooltip, container, param.point);
   };
@@ -85,6 +98,7 @@ const PriceMAChart = ({ data }) => {
       wickUpColor: UP_COLOR,
       wickDownColor: DOWN_COLOR,
     });
+    midSeriesRef.current = chart.addSeries(LineSeries, { color: MID_COLOR, lineWidth: 1, lineStyle: LineStyle.Dashed });
 
     chart.subscribeCrosshairMove(updateTooltip);
 
@@ -92,7 +106,8 @@ const PriceMAChart = ({ data }) => {
       chart.remove();
       chartRef.current = null;
       candleSeriesRef.current = null;
-      maSeriesRef.current = [];
+      midSeriesRef.current = null;
+      bandSeriesRef.current = [];
     };
   }, []);
 
@@ -102,13 +117,19 @@ const PriceMAChart = ({ data }) => {
     if (!chart || !candleSeries) return;
 
     candleSeries.setData(toCandlePoints(data));
+    midSeriesRef.current.setData(toLinePoints(data, 'BOLL_MID'));
 
-    maSeriesRef.current.forEach(({ series }) => chart.removeSeries(series));
-    maSeriesRef.current = findMaKeys(data).map((key, i) => {
+    bandSeriesRef.current.forEach(({ upper, lower }) => {
+      chart.removeSeries(upper);
+      chart.removeSeries(lower);
+    });
+    bandSeriesRef.current = findStdSuffixes(data).map((suffix, i) => {
       const color = LINE_COLORS[i % LINE_COLORS.length];
-      const series = chart.addSeries(LineSeries, { color, lineWidth: 2 });
-      series.setData(toLinePoints(data, key));
-      return { key, color, series };
+      const upper = chart.addSeries(LineSeries, { color, lineWidth: 1 });
+      const lower = chart.addSeries(LineSeries, { color, lineWidth: 1 });
+      upper.setData(toLinePoints(data, `BOLL_UPPER_${suffix}`));
+      lower.setData(toLinePoints(data, `BOLL_LOWER_${suffix}`));
+      return { suffix, color, upper, lower };
     });
 
     chart.timeScale().fitContent();
@@ -116,10 +137,10 @@ const PriceMAChart = ({ data }) => {
   }, [data]);
 
   return (
-    <Card title="Price/MA" className="mb-4">
+    <Card title="Bollinger Bands" className="mb-4">
       <ChartFrame containerRef={containerRef} legendRef={legendRef} tooltipRef={tooltipRef} height={HEIGHT} />
     </Card>
   );
 };
 
-export default PriceMAChart;
+export default BollingerChart;

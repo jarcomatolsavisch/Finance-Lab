@@ -1,0 +1,10 @@
+{
+  "stock_id": "2357",
+  "start": "2024-01-01",
+  "end": "2026-09-02",
+  "indicators": [
+    { "type": "MA", "params": { "M": [30, 90] } },
+    { "type": "MACD", "params": { "M": 12, "N": 26, "K": 9 } },
+    { "type": "BOLL", "params": { "M": 20, "std": [1.5, 2] } }
+  ]
+}

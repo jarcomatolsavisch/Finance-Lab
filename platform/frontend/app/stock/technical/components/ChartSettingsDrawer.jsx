@@ -5,20 +5,20 @@ import { Button, Divider, Drawer, Typography } from 'antd';
 import { CHART_TYPES } from '../lib/config';
 import ChartTypeSelector from './ChartTypeSelector';
 import PriceMAPanel from './panels/PriceMAPanel';
-import VolumePanel from './panels/VolumePanel';
 import MACDPanel from './panels/MACDPanel';
 import BollingerPanel from './panels/BollingerPanel';
 
+// Volume has no parameters, so it has no panel — its visibility is controlled entirely by
+// the Chart 多選器 above.
 const PANELS = {
   priceMA: PriceMAPanel,
-  volume: VolumePanel,
   macd: MACDPanel,
   boll: BollingerPanel,
 };
 
 // Right-side "Chart Configuration Center": a chart-type selector followed by one fixed
-// panel per selected chart type, and a draft-before-apply footer.
-// See platform/docs/TechAnalysisSpec.md sections 5-9.
+// panel per selected chart type (except Volume, which has none), and a draft-before-apply
+// footer. See platform/docs/TechAnalysisSpec.md sections 5-9.
 const ChartSettingsDrawer = ({ open, draftConfig, setDraftConfig, onCancel, onApply }) => {
   // Free-text list errors (Price/MA's M, Bollinger's std) live here rather than in
   // draftConfig, since draftConfig only ever holds successfully-parsed values.
@@ -56,7 +56,7 @@ const ChartSettingsDrawer = ({ open, draftConfig, setDraftConfig, onCancel, onAp
         <ChartTypeSelector charts={charts} onToggle={toggleChart} />
       </div>
 
-      {CHART_TYPES.filter(({ key }) => charts[key].enabled).map(({ key, label }) => {
+      {CHART_TYPES.filter(({ key }) => charts[key].enabled && PANELS[key]).map(({ key, label }) => {
         const Panel = PANELS[key];
         return (
           <div key={key}>

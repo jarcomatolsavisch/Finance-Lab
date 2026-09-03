@@ -21,6 +21,7 @@ out/
 
 # Generated script outputs
 lab/*.png
+lab/*.csv
 lab/financelab/
 
 # Logs

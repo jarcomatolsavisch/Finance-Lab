@@ -103,10 +103,10 @@
 
 1. **選股**：頁面頂部搜尋並選擇單一股票（一次僅能分析一檔）。
 2. **選擇時間區間**：Date Range Picker，**預設區間為「一年前」至「今日」**，不可選未來日期。
-3. **查詢**：點擊「查詢」，向後端請求該股票的價格與成交量資料；請求內容依當下的 `appliedConfig`（初次查詢即為預設設定）決定，預設會一併帶上 Price/MA 的 `MA_20`。
-4. **顯示預設圖表**：查詢完成後預設顯示 **Price/MA**（K 線＋一條 `MA_20`）與 **Volume** 兩個 Pane；MACD 與 Bollinger Bands 預設不顯示。
+3. **查詢**：點擊「查詢」，向後端請求該股票的價格與成交量資料；請求內容依當下的 `appliedConfig`（初次查詢即為預設設定）決定，預設會一併帶上 Price/MA 的 `MA_20`、MACD（`12,26,9`）與 Bollinger Bands（`M=20, std=[2]`）。
+4. **顯示預設圖表**：查詢完成後預設顯示**全部四種** Chart（Price/MA、Volume、MACD、Bollinger Bands），皆帶入各自的預設參數。
 5. **開啟圖表設定**：點擊圖表右上角「技術分析設定 ⚙」，開啟右側 Drawer。
-6. **Chart 多選器**：Drawer 頂部為四選多的多選器（Price/MA、Volume、MACD、Bollinger Bands），預設勾選 Price/MA、Volume。勾選/取消勾選會即時建立/移除對應的控制面板（僅更動 Draft，不影響主畫面）。
+6. **Chart 多選器**：Drawer 頂部為四選多的多選器（Price/MA、Volume、MACD、Bollinger Bands），預設全部勾選。勾選/取消勾選會即時建立/移除對應的控制面板（僅更動 Draft，不影響主畫面）。
 7. **調整各面板參數**：每個已勾選的 Chart 對應一個固定的控制面板，新增時自動帶入預設參數；各面板有各自的參數與驗證規則（詳見 [TechAnalysisSpec.md](./TechAnalysisSpec.md) 第 7、8 節）。
 8. **套用**：驗證參數 →「套用」本身是同步操作：`appliedConfig = draftConfig` 後立即關閉 Drawer，不等待後端回應 → `appliedConfig` 的變動觸發一次新的請求，內容為當下所有已勾選 Chart 的完整指標參數 → 圖表區域顯示 Loading（圖表維持原狀不消失）→ 取得回應後整批**取代**圖表資料。若請求失敗，於圖表區域顯示錯誤訊息「技術指標資料取得失敗，請稍後再試。」（Drawer 此時已關閉，不會因請求失敗重新開啟）。
 
@@ -115,28 +115,28 @@
 #### 圖表結構
 
 - 所有已顯示的 Chart Pane 共用同一個日期 X 軸、Zoom 與 Crosshair（時間位置同步），但不同資料類型各自獨立 Y 軸。
-- **Price/MA Pane**：K 線／收盤價線，疊加 0～3 條 MA 線。
+- **Price/MA Pane**：K 線圖（固定，不提供收盤價線切換），疊加 0～3 條 MA 線。
 - **Volume Pane**：成交量長條圖，無可調參數。
 - **MACD Pane**：啟用後建立獨立 Pane，顯示 MACD Line、Signal Line、Histogram（未來 RSI/KD 等 Oscillator 指標亦採獨立 Pane 的模式）。
-- **Bollinger Bands Pane**：與 Price/MA **各自獨立**的 Pane，同樣有自己的 K 線／收盤價線設定，疊加上／中／下三條軌道（可與 Price/MA 的價格外觀選擇不同）。
+- **Bollinger Bands Pane**：與 Price/MA **各自獨立**的 Pane，同樣固定以 K 線圖顯示價格，疊加上／中／下三條軌道。
 
 #### 各 Chart 使用的資料欄位
 
 | Chart | 使用欄位（見下方 API 回應每列物件的 key） |
 |---|---|
-| Price/MA | `DATE` + （K 線：`OPEN,MAX,MIN,CLOSE`／收盤價：`CLOSE`） + 各 `M` 對應的 `MA_<M>` |
+| Price/MA | `DATE`, `OPEN`, `MAX`, `MIN`, `CLOSE`（K 線圖） + 各 `M` 對應的 `MA_<M>` |
 | Volume | `DATE`, `TRADING_VOLUME` |
 | MACD | `DATE`, `MACD_DIF`, `MACD_SIGNAL`, `MACD_HISTOGRAM` |
-| Bollinger Bands | `DATE` + （K 線／收盤價，同 Price/MA） + `BOLL_MID` + 各 `std` 對應的 `BOLL_UPPER_<std>`／`BOLL_LOWER_<std>` |
+| Bollinger Bands | `DATE`, `OPEN`, `MAX`, `MIN`, `CLOSE`（K 線圖，同 Price/MA） + `BOLL_MID` + 各 `std` 對應的 `BOLL_UPPER_<std>`／`BOLL_LOWER_<std>` |
 
 #### MVP 範圍
 
 | Chart 類型 | 內容 | 預設是否顯示 | 預設參數 |
 |---|---|---|---|
-| Price/MA | K 線／收盤價線 + 0～3 條 MA（Overlay） | 顯示 | 價格外觀 = K 線；`M = [20]`（預設顯示 20 日均線） |
+| Price/MA | K 線圖 + 0～3 條 MA（Overlay） | 顯示 | `M = [20]`（預設顯示 20 日均線） |
 | Volume | 成交量長條圖（無參數） | 顯示 | — |
-| MACD | 獨立 Pane，同時顯示 MACD Line／Signal Line／Histogram | 不顯示 | `M=12, N=26, K=9` |
-| Bollinger Bands | 獨立 Pane，K 線／收盤價線 + 上／中／下軌（1～3 組 std） | 不顯示 | 價格外觀 = K 線；`M=20, std=[2]` |
+| MACD | 獨立 Pane，同時顯示 MACD Line／Signal Line／Histogram | 顯示 | `M=12, N=26, K=9` |
+| Bollinger Bands | 獨立 Pane，K 線圖 + 上／中／下軌（1～3 組 std） | 顯示 | `M=20, std=[2]` |
 
 核心互動：Chart 多選器（開關四種固定 Chart）、編輯各面板參數、取消／套用、套用時一律重新請求 API（無快取）、Loading（查詢或套用期間顯示）、參數驗證、錯誤處理。
 

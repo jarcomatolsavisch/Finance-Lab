@@ -9,6 +9,9 @@ import { getTechnicalIndicators, searchTwStocks } from '@/actions/actions';
 import ResponsiveCol from '@/components/common/ResponsiveCol';
 import ChartSettingsDrawer from './components/ChartSettingsDrawer';
 import PriceMAChart from './components/charts/PriceMAChart';
+import VolumeChart from './components/charts/VolumeChart';
+import MACDChart from './components/charts/MACDChart';
+import BollingerChart from './components/charts/BollingerChart';
 import { cloneConfig, createDefaultConfig } from './lib/config';
 import { buildIndicatorRequests } from './lib/chartData';
 
@@ -172,30 +175,34 @@ export default function Page() {
 
       {error && <Alert type="error" message={error} showIcon className="mb-4" />}
 
-      <Card
-        extra={
-          chartData.length > 0 && (
-            <Button icon={<SettingOutlined />} onClick={openDrawer}>
-              技術分析設定
-            </Button>
-          )
-        }
-        className="flex-1 mb-[50px]"
-        styles={{ body: { height: '100%', overflow: 'auto' } }}
-      >
-        {!chartData.length ? (
-          <Empty description="請選擇股票並查詢" />
-        ) : (
-          <Spin spinning={loading}>
-            {appliedConfig?.charts?.priceMA?.enabled && (
-              <PriceMAChart data={chartData} config={appliedConfig.charts.priceMA} />
-            )}
-            {appliedConfig?.charts?.volume?.enabled && <span>Volume Chart</span>}
-            {appliedConfig?.charts?.macd?.enabled && <span>MACD Chart</span>}
-            {appliedConfig?.charts?.boll?.enabled && <span>Bollinger Bands Chart</span>}
-          </Spin>
+      <div className="relative flex-1 mb-[50px]">
+        {chartData.length > 0 && (
+          <Button
+            icon={<SettingOutlined />}
+            onClick={openDrawer}
+            style={{ position: 'absolute', top: 12, right: 12, zIndex: 10 }}
+          >
+            技術分析設定
+          </Button>
         )}
-      </Card>
+
+        <Card className="h-full" styles={{ body: { height: '100%', overflow: 'auto' } }}>
+          {!chartData.length ? (
+            <Empty description="請選擇股票並查詢" />
+          ) : (
+            <Spin spinning={loading}>
+              {appliedConfig?.charts?.priceMA?.enabled && (
+                <PriceMAChart data={chartData} config={appliedConfig.charts.priceMA} />
+              )}
+              {appliedConfig?.charts?.volume?.enabled && <VolumeChart data={chartData} />}
+              {appliedConfig?.charts?.macd?.enabled && <MACDChart data={chartData} />}
+              {appliedConfig?.charts?.boll?.enabled && (
+                <BollingerChart data={chartData} config={appliedConfig.charts.boll} />
+              )}
+            </Spin>
+          )}
+        </Card>
+      </div>
 
       <ChartSettingsDrawer
         open={drawerOpen}

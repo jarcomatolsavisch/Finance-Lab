@@ -17,10 +17,10 @@ export const MACD_K_CONSTRAINTS = { min: 2, max: 50 };
 export const BOLL_M_CONSTRAINTS = { min: 2, max: 90 };
 
 const DEFAULT_CHARTS = {
-  priceMA: { enabled: true, priceType: 'candlestick', M: [20] },
+  priceMA: { enabled: true, M: [20] },
   volume: { enabled: true },
-  macd: { enabled: false, M: 12, N: 26, K: 9 },
-  boll: { enabled: false, priceType: 'candlestick', M: 20, std: [2] },
+  macd: { enabled: true, M: 12, N: 26, K: 9 },
+  boll: { enabled: true, M: 20, std: [2] },
 };
 
 export const createDefaultConfig = () => ({ charts: cloneCharts(DEFAULT_CHARTS) });

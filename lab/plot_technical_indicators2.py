@@ -9,8 +9,12 @@ data, and `indicators` decides which columns get computed and their dynamic name
         columns MACD_DIF, MACD_SIGNAL, MACD_HISTOGRAM
 - BOLL: params.M is the scalar rolling period, params.std is a list of up to 3 multipliers ->
         columns BOLL_MID, BOLL_UPPER_<std>, BOLL_LOWER_<std> (e.g. BOLL_UPPER_1p5, BOLL_UPPER_2p0)
+- VOL:  params.M is a list of up to 3 periods -> moving averages of volume, columns VOL_<period>
+        (e.g. VOL_5, VOL_10)
+- RSI:  params.M is a list of up to 3 periods -> columns RSI_<period> (e.g. RSI_12, RSI_24)
 
-Base OHLCV columns keep the same names as lab/data/price_<stock_id>.csv, upper-cased.
+Base OHLCV columns keep the same names as lab/data/price_<stock_id>.csv, upper-cased. The
+TRADING_VOLUME column is renamed to VOL.
 
 Renders one panel per indicator type present in the config, plus Price and Volume.
 """
@@ -26,6 +30,8 @@ CONFIG_PATH = os.path.join(os.path.dirname(__file__), "sample-body-tech.json")
 UP_COLOR = "#ef5350"  # close >= open
 DOWN_COLOR = "#26a69a"  # close < open
 MA_COLORS = ["#ff9800", "#9c27b0", "#3f51b5"]
+VOL_MA_COLORS = ["#ff9800", "#3f51b5", "#9c27b0"]
+RSI_COLORS = ["#1f77b4", "#ff9800", "#9c27b0"]
 
 
 def load_config() -> dict:
@@ -37,6 +43,7 @@ def load_prices(stock_id: str, start: str, end: str) -> pd.DataFrame:
     csv_path = os.path.join(os.path.dirname(__file__), "data", f"price_{stock_id}.csv")
     df = pd.read_csv(csv_path)
     df.columns = [c.upper() for c in df.columns]
+    df = df.rename(columns={"TRADING_VOLUME": "VOL"})
     df["DATE"] = pd.to_datetime(df["DATE"])
     df = df[(df["DATE"] >= start) & (df["DATE"] <= end)]
     return df.sort_values("DATE").reset_index(drop=True)
@@ -84,11 +91,33 @@ def add_boll(df: pd.DataFrame, params: dict) -> list:
     return suffixes
 
 
+def add_vol(df: pd.DataFrame, params: dict) -> list:
+    periods = params["M"][:3]
+    for m in periods:
+        df[f"VOL_{m}"] = df["VOL"].rolling(m).mean().round(ROUND_DECIMALS)
+    return periods
+
+
+def add_rsi(df: pd.DataFrame, params: dict) -> list:
+    periods = params["M"][:3]
+    delta = df["CLOSE"].diff()
+    gain = delta.clip(lower=0)
+    loss = -delta.clip(upper=0)
+    for m in periods:
+        avg_gain = gain.ewm(alpha=1 / m, adjust=False).mean()
+        avg_loss = loss.ewm(alpha=1 / m, adjust=False).mean()
+        rs = avg_gain / avg_loss
+        df[f"RSI_{m}"] = (100 - (100 / (1 + rs))).round(ROUND_DECIMALS)
+    return periods
+
+
 def build_dataframe(config: dict):
     df = load_prices(config["stock_id"], config["start"], config["end"])
 
     ma_periods = []
     boll_bands = []
+    vol_periods = []
+    rsi_periods = []
     has_macd = False
 
     for indicator in config["indicators"]:
@@ -100,10 +129,14 @@ def build_dataframe(config: dict):
             has_macd = True
         elif itype == "BOLL":
             boll_bands = add_boll(df, params)
+        elif itype == "VOL":
+            vol_periods = add_vol(df, params)
+        elif itype == "RSI":
+            rsi_periods = add_rsi(df, params)
         else:
             raise ValueError(f"Unsupported indicator type: {itype}")
 
-    return df, ma_periods, has_macd, boll_bands
+    return df, ma_periods, has_macd, boll_bands, vol_periods, rsi_periods
 
 
 def plot_price_panel(ax, df: pd.DataFrame, ma_periods: list, stock_id: str) -> None:
@@ -130,13 +163,20 @@ def plot_price_panel(ax, df: pd.DataFrame, ma_periods: list, stock_id: str) -> N
     ax.grid(True, alpha=0.3)
 
 
-def plot_volume_panel(ax, df: pd.DataFrame) -> None:
+def plot_volume_panel(ax, df: pd.DataFrame, vol_periods: list) -> None:
     up = df["CLOSE"] >= df["OPEN"]
     colors = up.map({True: UP_COLOR, False: DOWN_COLOR})
 
-    ax.bar(df["DATE"], df["TRADING_VOLUME"], width=pd.Timedelta(hours=16), color=colors)
+    ax.bar(df["DATE"], df["VOL"], width=pd.Timedelta(hours=16), color=colors, label="Volume")
+
+    for i, m in enumerate(vol_periods):
+        ax.plot(df["DATE"], df[f"VOL_{m}"], color=VOL_MA_COLORS[i % len(VOL_MA_COLORS)], linewidth=1.2, label=f"VOL MA{m}")
+
     ax.set_ylabel("Volume")
-    ax.set_title("Trading Volume")
+    vol_title = "/".join(f"MA{m}" for m in vol_periods)
+    ax.set_title("Trading Volume" + (f" / {vol_title}" if vol_title else ""))
+    if vol_periods:
+        ax.legend(loc="upper left")
     ax.grid(True, alpha=0.3)
 
 
@@ -180,12 +220,25 @@ def plot_bollinger_panel(ax, df: pd.DataFrame, boll_bands: list) -> None:
     ax.grid(True, alpha=0.3)
 
 
-PANEL_HEIGHT_RATIOS = {"price": 3, "volume": 1, "macd": 1.5, "boll": 2}
+def plot_rsi_panel(ax, df: pd.DataFrame, rsi_periods: list) -> None:
+    for i, m in enumerate(rsi_periods):
+        ax.plot(df["DATE"], df[f"RSI_{m}"], color=RSI_COLORS[i % len(RSI_COLORS)], linewidth=1.2, label=f"RSI{m}")
+
+    ax.axhline(70, color="black", linewidth=0.5, linestyle="--", alpha=0.5)
+    ax.axhline(30, color="black", linewidth=0.5, linestyle="--", alpha=0.5)
+    ax.set_ylim(0, 100)
+    ax.set_ylabel("RSI")
+    ax.set_title("/".join(f"RSI{m}" for m in rsi_periods))
+    ax.legend(loc="upper left")
+    ax.grid(True, alpha=0.3)
+
+
+PANEL_HEIGHT_RATIOS = {"price": 3, "volume": 1, "macd": 1.5, "boll": 2, "rsi": 1.5}
 
 
 def main() -> None:
     config = load_config()
-    df, ma_periods, has_macd, boll_bands = build_dataframe(config)
+    df, ma_periods, has_macd, boll_bands, vol_periods, rsi_periods = build_dataframe(config)
 
     data_path = os.path.join(os.path.dirname(__file__), "data", f"technical_{config['stock_id']}.csv")
     df.to_csv(data_path, index=False)
@@ -196,6 +249,8 @@ def main() -> None:
         panels.append("macd")
     if boll_bands:
         panels.append("boll")
+    if rsi_periods:
+        panels.append("rsi")
 
     fig, axes = plt.subplots(
         len(panels),
@@ -210,11 +265,13 @@ def main() -> None:
         if panel == "price":
             plot_price_panel(ax, df, ma_periods, config["stock_id"])
         elif panel == "volume":
-            plot_volume_panel(ax, df)
+            plot_volume_panel(ax, df, vol_periods)
         elif panel == "macd":
             plot_macd_panel(ax, df)
         elif panel == "boll":
             plot_bollinger_panel(ax, df, boll_bands)
+        elif panel == "rsi":
+            plot_rsi_panel(ax, df, rsi_periods)
 
     axes[-1].set_xlabel("Date")
     fig.tight_layout()

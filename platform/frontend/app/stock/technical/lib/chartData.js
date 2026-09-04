@@ -15,6 +15,11 @@ export const buildIndicatorRequests = charts => {
     if (M.length > 0) requests.push({ type: 'MA', params: { M } });
   }
 
+  if (charts.volume.enabled) {
+    const M = normalizeList(charts.volume.M);
+    if (M.length > 0) requests.push({ type: 'VOL', params: { M } });
+  }
+
   if (charts.macd.enabled) {
     const { M, N, K } = charts.macd;
     requests.push({ type: 'MACD', params: { M, N, K } });
@@ -24,6 +29,11 @@ export const buildIndicatorRequests = charts => {
     const { M } = charts.boll;
     const std = normalizeList(charts.boll.std);
     requests.push({ type: 'BOLL', params: { M, std } });
+  }
+
+  if (charts.rsi.enabled) {
+    const M = normalizeList(charts.rsi.M);
+    if (M.length > 0) requests.push({ type: 'RSI', params: { M } });
   }
 
   return requests;

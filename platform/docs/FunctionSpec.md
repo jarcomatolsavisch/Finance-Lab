@@ -95,7 +95,7 @@
 
 - 單一台股的技術指標圖表分析工具，而非多個獨立指標頁面。
 - Chart 是主要操作畫面；右側 Drawer 是「圖表設定中心」，使用者透過 Drawer 決定要顯示哪些 Chart、以及每個 Chart 的參數。
-- 提供**固定四種 Chart 類型**：Price/MA、Volume、MACD、Bollinger Bands，各自對應獨立 Pane 與獨立控制面板（並非可任意新增/刪除的指標卡片；同一類型內的多條同類線改以參數陣列表示，如 MA 週期 `M=[10,30]`）。
+- 提供**固定五種 Chart 類型**：Price/MA、Volume、RSI、MACD、Bollinger Bands，各自對應獨立 Pane 與獨立控制面板（並非可任意新增/刪除的指標卡片；同一類型內的多條同類線改以參數陣列表示，如 MA 週期 `M=[10,30]`）。
 - **市場資料（Price/MA 的價格部分、Volume）** 與 **技術指標（MA、MACD、Bollinger Bands 的指標計算部分）** 在資訊架構上分開，但透過同一個 API 取得：Step 3「查詢」以空的 `indicators` 送出、只取得基礎行情；Drawer 套用則帶上目前所有已勾選的指標。**不做快取、不合併新舊回應**——查詢或套用任一次觸發的請求，回應都會整批取代目前的圖表資料。
 - 設定採「先草稿、後套用」：Drawer 內的所有調整（勾選/取消勾選 Chart、修改參數）只更動前端 Draft 狀態，按下「套用」才驗證並送出後端請求、重繪圖表；按「取消」則捨棄 Draft，圖表維持原本設定。
 
@@ -103,10 +103,10 @@
 
 1. **選股**：頁面頂部搜尋並選擇單一股票（一次僅能分析一檔）。
 2. **選擇時間區間**：Date Range Picker，**預設區間為「一年前」至「今日」**，不可選未來日期。
-3. **查詢**：點擊「查詢」，向後端請求該股票的價格與成交量資料；請求內容依當下的 `appliedConfig`（初次查詢即為預設設定）決定，預設會一併帶上 Price/MA 的 `MA_20`、MACD（`12,26,9`）與 Bollinger Bands（`M=20, std=[2]`）。
-4. **顯示預設圖表**：查詢完成後預設顯示**全部四種** Chart（Price/MA、Volume、MACD、Bollinger Bands），皆帶入各自的預設參數。
+3. **查詢**：點擊「查詢」，向後端請求該股票的價格與成交量資料；請求內容依當下的 `appliedConfig`（初次查詢即為預設設定）決定，預設會一併帶上 Price/MA 的 `MA_20`、RSI（`M=[14]`）、MACD（`12,26,9`）與 Bollinger Bands（`M=20, std=[2]`）；Volume 的均量線（`VOL_<M>`）預設留空，不影響原本只顯示成交量長條圖的畫面。
+4. **顯示預設圖表**：查詢完成後預設顯示**全部五種** Chart（Price/MA、Volume、RSI、MACD、Bollinger Bands），皆帶入各自的預設參數。
 5. **開啟圖表設定**：點擊圖表右上角「技術分析設定 ⚙」，開啟右側 Drawer。
-6. **Chart 多選器**：Drawer 頂部為四選多的多選器（Price/MA、Volume、MACD、Bollinger Bands），預設全部勾選。勾選/取消勾選會即時建立/移除對應的控制面板（僅更動 Draft，不影響主畫面）。
+6. **Chart 多選器**：Drawer 頂部為五選多的多選器（Price/MA、Volume、RSI、MACD、Bollinger Bands），預設全部勾選。勾選/取消勾選會即時建立/移除對應的控制面板（僅更動 Draft，不影響主畫面）。
 7. **調整各面板參數**：每個已勾選的 Chart 對應一個固定的控制面板，新增時自動帶入預設參數；各面板有各自的參數與驗證規則（詳見 [TechAnalysisSpec.md](./TechAnalysisSpec.md) 第 7、8 節）。
 8. **套用**：驗證參數 →「套用」本身是同步操作：`appliedConfig = draftConfig` 後立即關閉 Drawer，不等待後端回應 → `appliedConfig` 的變動觸發一次新的請求，內容為當下所有已勾選 Chart 的完整指標參數 → 圖表區域顯示 Loading（圖表維持原狀不消失）→ 取得回應後整批**取代**圖表資料。若請求失敗，於圖表區域顯示錯誤訊息「技術指標資料取得失敗，請稍後再試。」（Drawer 此時已關閉，不會因請求失敗重新開啟）。
 
@@ -116,33 +116,38 @@
 
 - 所有已顯示的 Chart Pane 共用同一個日期 X 軸、Zoom 與 Crosshair（時間位置同步），但不同資料類型各自獨立 Y 軸。
 - **Price/MA Pane**：K 線圖（固定，不提供收盤價線切換），疊加 0～3 條 MA 線。
-- **Volume Pane**：成交量長條圖，無可調參數。
-- **MACD Pane**：啟用後建立獨立 Pane，顯示 MACD Line、Signal Line、Histogram（未來 RSI/KD 等 Oscillator 指標亦採獨立 Pane 的模式）。
+- **Volume Pane**：成交量長條圖，疊加 0～3 條 `VOL_<M>` 均量線（Overlay，可留空僅顯示長條圖）。
+- **RSI Pane**：獨立 Pane，顯示 1～3 條 `RSI_<M>` 線，並固定畫出 70／30 兩條參考線。
+- **MACD Pane**：啟用後建立獨立 Pane，顯示 MACD Line、Signal Line、Histogram（未來 KD 等 Oscillator 指標亦採獨立 Pane 的模式）。
 - **Bollinger Bands Pane**：與 Price/MA **各自獨立**的 Pane，同樣固定以 K 線圖顯示價格，疊加上／中／下三條軌道。
+
+以上 Pane 的顯示順序（Price/MA → Volume → RSI → MACD → Bollinger Bands）與 Drawer 內 Chart 多選器、控制面板的排列順序一致。
 
 #### 各 Chart 使用的資料欄位
 
 | Chart | 使用欄位（見下方 API 回應每列物件的 key） |
 |---|---|
 | Price/MA | `DATE`, `OPEN`, `MAX`, `MIN`, `CLOSE`（K 線圖） + 各 `M` 對應的 `MA_<M>` |
-| Volume | `DATE`, `TRADING_VOLUME` |
+| Volume | `DATE`, `TRADING_VOLUME` + 各 `M` 對應的 `VOL_<M>`（留空則無均量線） |
 | MACD | `DATE`, `MACD_DIF`, `MACD_SIGNAL`, `MACD_HISTOGRAM` |
 | Bollinger Bands | `DATE`, `OPEN`, `MAX`, `MIN`, `CLOSE`（K 線圖，同 Price/MA） + `BOLL_MID` + 各 `std` 對應的 `BOLL_UPPER_<std>`／`BOLL_LOWER_<std>` |
+| RSI | `DATE` + 各 `M` 對應的 `RSI_<M>` |
 
 #### MVP 範圍
 
 | Chart 類型 | 內容 | 預設是否顯示 | 預設參數 |
 |---|---|---|---|
 | Price/MA | K 線圖 + 0～3 條 MA（Overlay） | 顯示 | `M = [20]`（預設顯示 20 日均線） |
-| Volume | 成交量長條圖（無參數） | 顯示 | — |
+| Volume | 成交量長條圖 + 0～3 條均量線（Overlay） | 顯示 | `M = []`（預設不疊加均量線） |
+| RSI | 獨立 Pane，1～3 條 RSI 線 + 70／30 參考線 | 顯示 | `M = [14]` |
 | MACD | 獨立 Pane，同時顯示 MACD Line／Signal Line／Histogram | 顯示 | `M=12, N=26, K=9` |
 | Bollinger Bands | 獨立 Pane，K 線圖 + 上／中／下軌（1～3 組 std） | 顯示 | `M=20, std=[2]` |
 
-核心互動：Chart 多選器（開關四種固定 Chart）、編輯各面板參數、取消／套用、套用時一律重新請求 API（無快取）、Loading（查詢或套用期間顯示）、參數驗證、錯誤處理。
+核心互動：Chart 多選器（開關五種固定 Chart）、編輯各面板參數、取消／套用、套用時一律重新請求 API（無快取）、Loading（查詢或套用期間顯示）、參數驗證、錯誤處理。
 
-**參數驗證規則**：Price/MA `M`：0～3 個整數，each ∈ [2,90]。MACD `M,N`：整數 ∈ [2,90] 且 `M<N`；`K`：整數，建議範圍 [2,50]（業界慣例訊號線週期多為個位數到十位數，標準值 9，上限保留寬鬆空間但避免與 M/N 同尺度）。Bollinger `M`：整數 ∈ [2,90]；`std`：1～3 個數字，each ∈ [0.5,3.0]，最多一位小數。
+**參數驗證規則**：Price/MA `M`：0～3 個整數，each ∈ [2,90]。Volume `M`：0～3 個整數，each ∈ [2,90]（留空則無均量線）。MACD `M,N`：整數 ∈ [2,90] 且 `M<N`；`K`：整數，建議範圍 [2,50]（業界慣例訊號線週期多為個位數到十位數，標準值 9，上限保留寬鬆空間但避免與 M/N 同尺度）。Bollinger `M`：整數 ∈ [2,90]；`std`：1～3 個數字，each ∈ [0.5,3.0]，最多一位小數。RSI `M`：1～3 個整數，each ∈ [2,90]（至少 1 個，否則 Pane 無內容）。
 
-**未來擴充**（不影響上述架構，僅需新增一個固定 Chart 選項＋獨立 Pane＋控制面板）：RSI、KD、EMA、ATR、Stochastic、OBV。
+**未來擴充**（不影響上述架構，僅需新增一個固定 Chart 選項＋獨立 Pane＋控制面板）：KD、EMA、ATR、Stochastic、OBV。
 
 #### 對應的後端 API
 
@@ -155,7 +160,7 @@
 | `stock_id` | string | 是 | 單一股票代號 |
 | `start` | date | 是 | 起始日 |
 | `end` | date | 是 | 結束日 |
-| `indicators` | array | 否（預設 `[]`） | 指標設定陣列。**同一種 `type` 最多只能出現一筆**（`MA`／`MACD`／`BOLL` 各至多一筆），每筆為 `{type, params}` |
+| `indicators` | array | 否（預設 `[]`） | 指標設定陣列。**同一種 `type` 最多只能出現一筆**（`MA`／`MACD`／`BOLL`／`VOL`／`RSI` 各至多一筆），每筆為 `{type, params}` |
 
 `params` 依 `type` 決定形狀：
 
@@ -164,6 +169,8 @@
 | `MA` | `{ M: number[] }` | `M` 為週期陣列，**最多 3 個**，每個週期各產生一條 MA 線（例：`M: [30, 90]` → `MA_30`、`MA_90` 兩條線） |
 | `MACD` | `{ M, N, K }` | 皆為單一數值（純量）：`M` 為快線週期、`N` 為慢線週期、`K` 為訊號線週期；一次請求只產生一組 MACD／Signal／Histogram，參數本身不會出現在回應欄位名稱中 |
 | `BOLL` | `{ M, std: number[] }` | `M` 為單一數值的移動平均週期（純量）；`std` 為標準差倍數陣列，**最多 3 個**，每個倍數各產生一條上／下軌帶（中軌只需計算一次，不受 `std` 影響） |
+| `VOL` | `{ M: number[] }` | `M` 為週期陣列，**最多 3 個**，對成交量（`TRADING_VOLUME`）各自計算移動平均，每個週期各產生一條 `VOL_<M>` 線（例：`M: [5, 10]` → `VOL_5`、`VOL_10`） |
+| `RSI` | `{ M: number[] }` | `M` 為週期陣列，**最多 3 個**，每個週期各產生一條 `RSI_<M>` 線（例：`M: [12, 24]` → `RSI_12`、`RSI_24`） |
 
 範例請求體（見 [`lab/sample-body-tech.json`](../../lab/sample-body-tech.json)）：
 
@@ -175,7 +182,9 @@
   "indicators": [
     { "type": "MA", "params": { "M": [30, 90] } },
     { "type": "MACD", "params": { "M": 12, "N": 26, "K": 9 } },
-    { "type": "BOLL", "params": { "M": 20, "std": [1.5, 2] } }
+    { "type": "BOLL", "params": { "M": 20, "std": [1.5, 2] } },
+    { "type": "VOL", "params": { "M": [5, 10] } },
+    { "type": "RSI", "params": { "M": [12, 24] } }
   ]
 }
 ```
@@ -191,7 +200,9 @@
     "DATE", "STOCK_ID", "TRADING_VOLUME", "TRADING_MONEY", "OPEN", "MAX", "MIN", "CLOSE", "SPREAD", "TRADING_TURNOVER",
     "MA_30", "MA_90",
     "MACD_DIF", "MACD_SIGNAL", "MACD_HISTOGRAM",
-    "BOLL_MID", "BOLL_UPPER_1p5", "BOLL_LOWER_1p5", "BOLL_UPPER_2p0", "BOLL_LOWER_2p0"
+    "BOLL_MID", "BOLL_UPPER_1p5", "BOLL_LOWER_1p5", "BOLL_UPPER_2p0", "BOLL_LOWER_2p0",
+    "VOL_5", "VOL_10",
+    "RSI_12", "RSI_24"
   ],
   "data": [
     {
@@ -199,14 +210,18 @@
       "OPEN": 494.0, "MAX": 498.0, "MIN": 479.0, "CLOSE": 485.0, "SPREAD": -4.5, "TRADING_TURNOVER": 13134,
       "MA_30": null, "MA_90": null,
       "MACD_DIF": 0.0, "MACD_SIGNAL": 0.0, "MACD_HISTOGRAM": 0.0,
-      "BOLL_MID": null, "BOLL_UPPER_1p5": null, "BOLL_LOWER_1p5": null, "BOLL_UPPER_2p0": null, "BOLL_LOWER_2p0": null
+      "BOLL_MID": null, "BOLL_UPPER_1p5": null, "BOLL_LOWER_1p5": null, "BOLL_UPPER_2p0": null, "BOLL_LOWER_2p0": null,
+      "VOL_5": null, "VOL_10": null,
+      "RSI_12": null, "RSI_24": null
     },
     {
       "DATE": "2026-09-01", "STOCK_ID": "2357", "TRADING_VOLUME": 5653878, "TRADING_MONEY": 5675970931,
       "OPEN": 1000.0, "MAX": 1025.0, "MIN": 987.0, "CLOSE": 1010.0, "SPREAD": 11.0, "TRADING_TURNOVER": 11236,
       "MA_30": 866.2667, "MA_90": 763.9667,
       "MACD_DIF": 53.6754, "MACD_SIGNAL": 49.2218, "MACD_HISTOGRAM": 4.4536,
-      "BOLL_MID": 914.15, "BOLL_UPPER_1p5": 1009.3364, "BOLL_LOWER_1p5": 818.9636, "BOLL_UPPER_2p0": 1041.0653, "BOLL_LOWER_2p0": 787.2347
+      "BOLL_MID": 914.15, "BOLL_UPPER_1p5": 1009.3364, "BOLL_LOWER_1p5": 818.9636, "BOLL_UPPER_2p0": 1041.0653, "BOLL_LOWER_2p0": 787.2347,
+      "VOL_5": 4832456.4, "VOL_10": 5104213.7,
+      "RSI_12": 68.8138, "RSI_24": 71.6114
     }
   ]
 }
@@ -222,6 +237,8 @@
 | `MA` | 每個週期一欄：`MA_<M>`（例：`MA_30`、`MA_90`） |
 | `MACD` | 固定三欄：`MACD_DIF`、`MACD_SIGNAL`、`MACD_HISTOGRAM`（`M`/`N`/`K` 僅用於計算，不出現在欄位名） |
 | `BOLL` | 中軌固定一欄 `BOLL_MID`；每個 `std` 倍數各兩欄：`BOLL_UPPER_<std>`、`BOLL_LOWER_<std>`（小數點以 `p` 表示，例：`1.5` → `1p5`、`2` → `2p0`） |
+| `VOL` | 每個週期一欄：`VOL_<M>`（例：`VOL_5`、`VOL_10`，對 `TRADING_VOLUME` 計算移動平均） |
+| `RSI` | 每個週期一欄：`RSI_<M>`（例：`RSI_12`、`RSI_24`） |
 
 `data` 中每列對應一個交易日；每個指標欄位在其滾動視窗尚無足夠資料的前幾列為 `null`（對應 pandas 的 `NaN`），**不會**如舊版那樣省略該列 —— 所有指標欄位共用同一組列（交易日），只有欄位值是否為 `null` 的差異。所有指標數值皆四捨五入至小數點後 4 位。
 
@@ -231,13 +248,15 @@
 2. **MA**：對 `params.M` 陣列中每個週期各自計算移動平均（`close.rolling(M).mean()`），寫入對應的 `MA_<M>` 欄位。
 3. **BOLL**：以 `params.M` 週期的移動平均為中軌 `BOLL_MID`（只計算一次），對 `params.std` 陣列中每個倍數各自計算中軌 ± `std × rolling_std`，寫入 `BOLL_UPPER_<std>`／`BOLL_LOWER_<std>`。
 4. **MACD**：以收盤價的指數移動平均（EMA）計算，`MACD_DIF = EMA(M) - EMA(N)`，`MACD_SIGNAL = EMA(MACD_DIF, K)`，`MACD_HISTOGRAM = MACD_DIF - MACD_SIGNAL`。
-5. 所有欄位合併回同一張表格（不做 `dropna`），每個欄位四捨五入至小數點後 4 位，再序列化為 `columns`（欄位名稱陣列）與 `data`（列物件陣列，每列以 `to_dict(orient="records")` 之類的方式產生、並將 `NaN` 轉為 `null`）回傳。
+5. **VOL**：對 `params.M` 陣列中每個週期各自計算成交量（`TRADING_VOLUME`）的移動平均（`.rolling(M).mean()`），寫入對應的 `VOL_<M>` 欄位。
+6. **RSI**：以收盤價漲跌幅（`diff()`）拆出漲幅／跌幅，各自以 Wilder 平滑（`ewm(alpha=1/M, adjust=False)`）取平均，`RSI = 100 - 100 / (1 + avg_gain / avg_loss)`；對 `params.M` 陣列中每個週期各自計算，寫入對應的 `RSI_<M>` 欄位。
+7. 所有欄位合併回同一張表格（不做 `dropna`），每個欄位四捨五入至小數點後 4 位，再序列化為 `columns`（欄位名稱陣列）與 `data`（列物件陣列，每列以 `to_dict(orient="records")` 之類的方式產生、並將 `NaN` 轉為 `null`）回傳。
 
 前端對應的 Server Action：`getTechnicalIndicators`（於 `frontend/actions/actions.js`，僅轉發 JSON，不受回應格式調整影響）；實際依 `data` 形狀組出圖表資料的邏輯在 `lib/chartData.js`，待依新格式調整。
 
 #### 已知限制
 
-- Price/MA、Volume、MACD、Bollinger Bands 四個 Pane 各自為獨立的 `@ant-design/plots` 圖表實例（`Mix`/`Column`），僅共用相同的日期範圍，**尚未實作**跨 Pane 的同步 Crosshair 與同步 Zoom（TechAnalysisSpec.md 第 3 節所述的進階同步行為，留待後續優化）。
+- Price/MA、Volume、RSI、MACD、Bollinger Bands 五個 Pane 各自為獨立的 `lightweight-charts` 圖表實例，僅共用相同的日期範圍，**尚未實作**跨 Pane 的同步 Crosshair 與同步 Zoom（TechAnalysisSpec.md 第 3 節所述的進階同步行為，留待後續優化）。
 - 目前僅支援單一股票、單一時間區間的技術分析；不支援多股票疊圖比較。
 
 ---

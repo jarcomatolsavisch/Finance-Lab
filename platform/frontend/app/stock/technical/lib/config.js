@@ -6,21 +6,25 @@
 export const CHART_TYPES = [
   { key: 'priceMA', label: 'Price/MA' },
   { key: 'volume', label: 'Volume' },
+  { key: 'rsi', label: 'RSI' },
   { key: 'macd', label: 'MACD' },
   { key: 'boll', label: 'Bollinger Bands' },
 ];
 
 export const PRICE_MA_M_CONSTRAINTS = { min: 2, max: 90, minCount: 0, maxCount: 3, integer: true, maxDecimals: 0 };
+export const VOLUME_M_CONSTRAINTS = { min: 2, max: 90, minCount: 0, maxCount: 3, integer: true, maxDecimals: 0 };
 export const BOLL_STD_CONSTRAINTS = { min: 0.5, max: 3.0, minCount: 1, maxCount: 3, integer: false, maxDecimals: 1 };
 export const MACD_MN_CONSTRAINTS = { min: 2, max: 90 };
 export const MACD_K_CONSTRAINTS = { min: 2, max: 50 };
 export const BOLL_M_CONSTRAINTS = { min: 2, max: 90 };
+export const RSI_M_CONSTRAINTS = { min: 2, max: 90, minCount: 1, maxCount: 3, integer: true, maxDecimals: 0 };
 
 const DEFAULT_CHARTS = {
   priceMA: { enabled: true, M: [20] },
-  volume: { enabled: true },
+  volume: { enabled: true, M: [] },
   macd: { enabled: true, M: 12, N: 26, K: 9 },
   boll: { enabled: true, M: 20, std: [2] },
+  rsi: { enabled: true, M: [14] },
 };
 
 export const createDefaultConfig = () => ({ charts: cloneCharts(DEFAULT_CHARTS) });

@@ -12,6 +12,7 @@ import PriceMAChart from './components/charts/PriceMAChart';
 import VolumeChart from './components/charts/VolumeChart';
 import MACDChart from './components/charts/MACDChart';
 import BollingerChart from './components/charts/BollingerChart';
+import RSIChart from './components/charts/RSIChart';
 import { cloneConfig, createDefaultConfig } from './lib/config';
 import { buildIndicatorRequests } from './lib/chartData';
 
@@ -34,8 +35,8 @@ export default function Page() {
   const [stockId, setStockId] = useState(null);
   const [range, setRange] = useState(DEFAULT_RANGE);
 
-  const [appliedConfig, setAppliedConfig] = useState(createDefaultConfig);
-  const [draftConfig, setDraftConfig] = useState(createDefaultConfig);
+  const [appliedConfig, setAppliedConfig] = useState(createDefaultConfig());
+  const [draftConfig, setDraftConfig] = useState(createDefaultConfig());
   const [chartData, setChartData] = useState([]);
 
   const [loading, setLoading] = useState(false);
@@ -99,8 +100,6 @@ export default function Page() {
   const onSubmit = ({ stock, range: pickedRange }) => {
     setStockId(stock);
     setRange(pickedRange);
-    setAppliedConfig(createDefaultConfig());
-    setDraftConfig(createDefaultConfig());
   };
 
   const openDrawer = () => {
@@ -195,6 +194,7 @@ export default function Page() {
                 <PriceMAChart data={chartData} config={appliedConfig.charts.priceMA} />
               )}
               {appliedConfig?.charts?.volume?.enabled && <VolumeChart data={chartData} />}
+              {appliedConfig?.charts?.rsi?.enabled && <RSIChart data={chartData} />}
               {appliedConfig?.charts?.macd?.enabled && <MACDChart data={chartData} />}
               {appliedConfig?.charts?.boll?.enabled && (
                 <BollingerChart data={chartData} config={appliedConfig.charts.boll} />

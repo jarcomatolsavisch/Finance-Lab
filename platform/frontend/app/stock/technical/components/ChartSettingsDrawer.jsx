@@ -5,20 +5,22 @@ import { Button, Divider, Drawer, Typography } from 'antd';
 import { CHART_TYPES } from '../lib/config';
 import ChartTypeSelector from './ChartTypeSelector';
 import PriceMAPanel from './panels/PriceMAPanel';
+import VolumePanel from './panels/VolumePanel';
 import MACDPanel from './panels/MACDPanel';
 import BollingerPanel from './panels/BollingerPanel';
+import RSIPanel from './panels/RSIPanel';
 
-// Volume has no parameters, so it has no panel — its visibility is controlled entirely by
-// the Chart 多選器 above.
 const PANELS = {
   priceMA: PriceMAPanel,
+  volume: VolumePanel,
   macd: MACDPanel,
   boll: BollingerPanel,
+  rsi: RSIPanel,
 };
 
 // Right-side "Chart Configuration Center": a chart-type selector followed by one fixed
-// panel per selected chart type (except Volume, which has none), and a draft-before-apply
-// footer. See platform/docs/TechAnalysisSpec.md sections 5-9.
+// panel per selected chart type, and a draft-before-apply footer.
+// See platform/docs/TechAnalysisSpec.md sections 5-9.
 const ChartSettingsDrawer = ({ open, draftConfig, setDraftConfig, onCancel, onApply }) => {
   // Free-text list errors (Price/MA's M, Bollinger's std) live here rather than in
   // draftConfig, since draftConfig only ever holds successfully-parsed values.
@@ -33,7 +35,11 @@ const ChartSettingsDrawer = ({ open, draftConfig, setDraftConfig, onCancel, onAp
   const { charts } = draftConfig;
   const macdInvalid = charts.macd.enabled && charts.macd.M != null && charts.macd.N != null && charts.macd.M >= charts.macd.N;
   const canApply =
-    !(charts.priceMA.enabled && listErrors.priceMA) && !(charts.boll.enabled && listErrors.boll) && !macdInvalid;
+    !(charts.priceMA.enabled && listErrors.priceMA) &&
+    !(charts.volume.enabled && listErrors.volume) &&
+    !(charts.boll.enabled && listErrors.boll) &&
+    !(charts.rsi.enabled && listErrors.rsi) &&
+    !macdInvalid;
 
   return (
     <Drawer

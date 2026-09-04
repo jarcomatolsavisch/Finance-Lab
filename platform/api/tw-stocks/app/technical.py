@@ -57,7 +57,24 @@ def _add_boll(df: pd.DataFrame, params) -> None:
         df[f"BOLL_LOWER_{suffix}"] = (mid - std * std_roll).round(ROUND_DECIMALS)
 
 
-_INDICATOR_BUILDERS = {"MA": _add_ma, "MACD": _add_macd, "BOLL": _add_boll}
+def _add_vol(df: pd.DataFrame, params) -> None:
+    for m in params.M:
+        df[f"VOL_{m}"] = df["TRADING_VOLUME"].rolling(m).mean().round(ROUND_DECIMALS)
+
+
+def _add_rsi(df: pd.DataFrame, params) -> None:
+    delta = df["CLOSE"].diff()
+    gain = delta.clip(lower=0)
+    loss = -delta.clip(upper=0)
+
+    for m in params.M:
+        avg_gain = gain.ewm(alpha=1 / m, adjust=False).mean()
+        avg_loss = loss.ewm(alpha=1 / m, adjust=False).mean()
+        rs = avg_gain / avg_loss
+        df[f"RSI_{m}"] = (100 - (100 / (1 + rs))).round(ROUND_DECIMALS)
+
+
+_INDICATOR_BUILDERS = {"MA": _add_ma, "MACD": _add_macd, "BOLL": _add_boll, "VOL": _add_vol, "RSI": _add_rsi}
 
 
 def build_technical_table(stock_id: str, start: date, end: date, indicators: list) -> pd.DataFrame:

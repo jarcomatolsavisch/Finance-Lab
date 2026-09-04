@@ -94,8 +94,40 @@ class BollIndicatorRequest(BaseModel):
     params: BollParams
 
 
+class VolParams(BaseModel):
+    M: list[int] = Field(..., min_length=1, max_length=3, description="Volume MA periods, one line each")
+
+    @field_validator("M")
+    @classmethod
+    def check_positive(cls, value: list[int]) -> list[int]:
+        if any(m <= 0 for m in value):
+            raise ValueError("M periods must all be > 0")
+        return value
+
+
+class RSIParams(BaseModel):
+    M: list[int] = Field(..., min_length=1, max_length=3, description="RSI periods, one line each")
+
+    @field_validator("M")
+    @classmethod
+    def check_positive(cls, value: list[int]) -> list[int]:
+        if any(m <= 0 for m in value):
+            raise ValueError("M periods must all be > 0")
+        return value
+
+
+class VolIndicatorRequest(BaseModel):
+    type: Literal["VOL"]
+    params: VolParams
+
+
+class RSIIndicatorRequest(BaseModel):
+    type: Literal["RSI"]
+    params: RSIParams
+
+
 IndicatorRequest = Annotated[
-    Union[MAIndicatorRequest, MACDIndicatorRequest, BollIndicatorRequest],
+    Union[MAIndicatorRequest, MACDIndicatorRequest, BollIndicatorRequest, VolIndicatorRequest, RSIIndicatorRequest],
     Field(discriminator="type"),
 ]
 
@@ -111,7 +143,7 @@ class TechnicalIndicatorsRequest(BaseModel):
     def check_unique_types(cls, value: list) -> list:
         types = [indicator.type for indicator in value]
         if len(types) != len(set(types)):
-            raise ValueError("each indicator type (MA/MACD/BOLL) may appear at most once")
+            raise ValueError("each indicator type (MA/MACD/BOLL/VOL/RSI) may appear at most once")
         return value
 
 

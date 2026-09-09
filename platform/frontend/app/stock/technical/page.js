@@ -13,6 +13,7 @@ import VolumeChart from './components/charts/VolumeChart';
 import MACDChart from './components/charts/MACDChart';
 import BollingerChart from './components/charts/BollingerChart';
 import RSIChart from './components/charts/RSIChart';
+import { ChartSyncProvider } from './components/charts/ChartSyncContext';
 import { cloneConfig, createDefaultConfig } from './lib/config';
 import { buildIndicatorRequests } from './lib/chartData';
 
@@ -190,15 +191,17 @@ export default function Page() {
             <Empty description="請選擇股票並查詢" />
           ) : (
             <Spin spinning={loading}>
-              {appliedConfig?.charts?.priceMA?.enabled && (
-                <PriceMAChart data={chartData} config={appliedConfig.charts.priceMA} />
-              )}
-              {appliedConfig?.charts?.volume?.enabled && <VolumeChart data={chartData} />}
-              {appliedConfig?.charts?.rsi?.enabled && <RSIChart data={chartData} />}
-              {appliedConfig?.charts?.macd?.enabled && <MACDChart data={chartData} />}
-              {appliedConfig?.charts?.boll?.enabled && (
-                <BollingerChart data={chartData} config={appliedConfig.charts.boll} />
-              )}
+              <ChartSyncProvider resetKey={chartData}>
+                {appliedConfig?.charts?.priceMA?.enabled && (
+                  <PriceMAChart data={chartData} config={appliedConfig.charts.priceMA} />
+                )}
+                {appliedConfig?.charts?.volume?.enabled && <VolumeChart data={chartData} />}
+                {appliedConfig?.charts?.rsi?.enabled && <RSIChart data={chartData} />}
+                {appliedConfig?.charts?.macd?.enabled && <MACDChart data={chartData} />}
+                {appliedConfig?.charts?.boll?.enabled && (
+                  <BollingerChart data={chartData} config={appliedConfig.charts.boll} />
+                )}
+              </ChartSyncProvider>
             </Spin>
           )}
         </Card>

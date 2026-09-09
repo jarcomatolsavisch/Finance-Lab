@@ -114,7 +114,7 @@
 
 #### 圖表結構
 
-- 所有已顯示的 Chart Pane 共用同一個日期 X 軸、Zoom 與 Crosshair（時間位置同步），但不同資料類型各自獨立 Y 軸。
+- 所有已顯示的 Chart Pane 共用同一個日期 X 軸、Zoom 與 Crosshair（時間位置同步），但不同資料類型各自獨立 Y 軸。**跨 Pane 同步**（`components/charts/ChartSyncContext.jsx`）：任一 Pane 的滑鼠移動會同時在其他所有已顯示 Pane 上移動 Crosshair 並顯示各自的 Tooltip（依同一份 `data` 以日期查表，而非依賴各 Pane 自己的 lightweight-charts 內部狀態）；任一 Pane 的縮放／平移（`timeScale().setVisibleLogicalRange`）也會同步套用到其他所有 Pane。每個 Pane 各自掛載／卸載時會向 Context 註冊／取消註冊，僅在畫面上實際顯示的 Pane 之間同步。
 - **Price/MA Pane**：K 線圖（固定，不提供收盤價線切換），疊加 0～3 條 MA 線。
 - **Volume Pane**：成交量長條圖，疊加 0～3 條 `VOL_<M>` 均量線（Overlay，可留空僅顯示長條圖）。
 - **RSI Pane**：獨立 Pane，顯示 1～3 條 `RSI_<M>` 線，並固定畫出 70／30 兩條參考線。
@@ -122,6 +122,21 @@
 - **Bollinger Bands Pane**：與 Price/MA **各自獨立**的 Pane，同樣固定以 K 線圖顯示價格，疊加上／中／下三條軌道。
 
 以上 Pane 的顯示順序（Price/MA → Volume → RSI → MACD → Bollinger Bands）與 Drawer 內 Chart 多選器、控制面板的排列順序一致。
+
+#### 鎖定模式（Lock Mode）
+
+實作於 `components/charts/ChartSyncContext.jsx`（`lock` 狀態與 `toggleLock`）；每個 Pane 元件在點擊（`chart.subscribeClick`）時呼叫 `toggleLock`，並各自以一個 effect 監聽 `sync.lock` 來套用／解除鎖定（呼叫自身的 `applyCrosshair` 固定畫面，並以 `chart.applyOptions({ handleScroll: false, handleScale: false })` 停用縮放／平移）。
+
+**目的**：目前跨 Pane 同步的 Crosshair／Tooltip 只在滑鼠持續停留時才顯示；但頁面往下捲動查看其他 Pane 時，滑鼠通常已離開圖表區域，導致 Tooltip 消失。鎖定模式讓使用者可以固定在某一個交易日，往下捲動頁面比對 Price/MA、Volume、RSI、MACD、Bollinger Bands 這五個 Pane 在**同一天**的數值，不必持續用滑鼠停留在該日期上。
+
+- **進入鎖定**：在任一已顯示 Pane 的圖表區域上點擊滑鼠。點擊當下該 Pane 的 Crosshair 所在日期，即成為鎖定日期。這是**全頁面共用的單一開關**——一旦鎖定，所有已顯示的 Pane 同時進入鎖定狀態（並非各 Pane 分別鎖定各自的日期）。若點擊時該 Pane 沒有對應的 Crosshair 日期（例如點在圖表留白處、無資料範圍），視為點擊無效，不進入鎖定。
+- **鎖定期間的行為**：
+  - 所有 Pane 的 Crosshair 固定停留在鎖定日期，不再隨滑鼠移動而改變（即原本「跨 Pane 同步 Crosshair」章節所述、隨滑鼠 hover 觸發的同步機制暫停）。
+  - 所有 Pane 的 Tooltip 固定顯示鎖定日期當下的內容與畫面位置，不會因滑鼠移出圖表而隱藏，也不會因滑鼠移到其他日期而更新。
+  - 所有 Pane 暫停各自的縮放／平移互動（滑鼠滾輪縮放、拖曳平移），使滑鼠滾輪在圖表上改為捲動整個頁面，避免使用者往下捲動頁面時誤觸發圖表縮放；鎖定期間不提供任何縮放／平移的替代手勢。
+  - 進入鎖定的當下，以 Antd `message` 顯示一次性提示（例如「已鎖定於 YYYY-MM-DD，再次點擊圖表可解除」），告知使用者已進入鎖定模式；此為短暫顯示的 Toast，不是持續停留畫面上的提示。
+- **解除鎖定**：再次在任一 Pane 的圖表區域上點擊，回到一般模式——滑鼠移動即恢復即時同步 Crosshair／Tooltip，縮放／平移互動也恢復正常（回到本節前段「跨 Pane 同步」所述行為）。
+- **重置時機**：換股票、改時間區間或套用新的 Drawer 設定（取得新的 `chartData`，圖表資料整批替換）時，鎖定狀態一律重置為一般模式（不論鎖定日期是否仍存在於新資料中）。
 
 #### 各 Chart 使用的資料欄位
 
@@ -256,8 +271,9 @@
 
 #### 已知限制
 
-- Price/MA、Volume、RSI、MACD、Bollinger Bands 五個 Pane 各自為獨立的 `lightweight-charts` 圖表實例，僅共用相同的日期範圍，**尚未實作**跨 Pane 的同步 Crosshair 與同步 Zoom（TechAnalysisSpec.md 第 3 節所述的進階同步行為，留待後續優化）。
 - 目前僅支援單一股票、單一時間區間的技術分析；不支援多股票疊圖比較。
+- 各 Pane 的初始縮放範圍（查詢或套用後）仍各自呼叫 `fitContent()` 以配合自身資料的有效範圍（例如 RSI 因週期較長，暖機期比其他 Pane 短，可視範圍會略有不同）；跨 Pane 同步僅發生在使用者實際操作 Crosshair／縮放平移之後。
+- 若滑鼠所在日期在某個 Pane 尚無資料（例如指標的移動視窗尚未有足夠資料而為 `null`），該 Pane 的 Crosshair 與 Tooltip 會保持隱藏，其餘有資料的 Pane 則正常同步顯示。
 
 ---
 

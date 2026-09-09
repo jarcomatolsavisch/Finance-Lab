@@ -4,9 +4,11 @@ import { useEffect, useRef } from 'react';
 import { Card } from 'antd';
 import { createChart, CandlestickSeries, LineSeries, LineStyle } from 'lightweight-charts';
 import ChartFrame from './ChartFrame';
+import { useChartSync } from './ChartSyncContext';
 import { DOWN_COLOR, LINE_COLORS, UP_COLOR, fmt, isOutOfBounds, legendSwatch, positionTooltip } from './chartUtils';
 
 const HEIGHT = 450;
+const PANE_ID = 'boll';
 const MID_COLOR = '#9e9e9e';
 
 const toCandlePoints = data =>
@@ -32,8 +34,15 @@ const findStdSuffixes = data => {
 
 // Bollinger Bands chart: candlestick + mid band + one upper/lower pair per std multiplier,
 // built with lightweight-charts. `config` isn't used yet — candlestick-only for now, same
-// as PriceMAChart.
+// as PriceMAChart. Crosshair and zoom/pan are synced with every other pane on the page via
+// ChartSyncContext (see PriceMAChart for the pattern).
 const BollingerChart = ({ data }) => {
+  const sync = useChartSync();
+  const dataRef = useRef(data);
+  dataRef.current = data;
+  const lockRef = useRef(sync?.lock);
+  lockRef.current = sync?.lock;
+
   const containerRef = useRef(null);
   const legendRef = useRef(null);
   const tooltipRef = useRef(null);
@@ -54,38 +63,82 @@ const BollingerChart = ({ data }) => {
     legend.innerHTML = rows.join('');
   };
 
-  const updateTooltip = param => {
-    const container = containerRef.current;
+  const showTooltip = (row, point) => {
     const tooltip = tooltipRef.current;
-    const candleSeries = candleSeriesRef.current;
-    if (!container || !tooltip || !candleSeries) return;
+    const container = containerRef.current;
+    if (!tooltip || !container) return;
 
-    const candle = param?.time ? param.seriesData.get(candleSeries) : null;
-    if (!candle || isOutOfBounds(param, container)) {
+    if (!row || !point || row.OPEN == null || row.MAX == null || row.MIN == null || row.CLOSE == null) {
       tooltip.style.display = 'none';
       return;
     }
 
-    const mid = param.seriesData.get(midSeriesRef.current);
     const bandRows = bandSeriesRef.current
-      .map(({ suffix, color, upper, lower }) => {
-        const upperPoint = param.seriesData.get(upper);
-        const lowerPoint = param.seriesData.get(lower);
-        return `<div>${legendSwatch(color)}±${suffix.replace('p', '.')}：${fmt(upperPoint?.value)} / ${fmt(lowerPoint?.value)}</div>`;
+      .map(({ suffix, color }) => {
+        const upper = row[`BOLL_UPPER_${suffix}`];
+        const lower = row[`BOLL_LOWER_${suffix}`];
+        return `<div>${legendSwatch(color)}±${suffix.replace('p', '.')}：${fmt(upper)} / ${fmt(lower)}</div>`;
       })
       .join('');
 
     tooltip.style.display = 'block';
     tooltip.innerHTML = `
-      <div style="font-weight:600;margin-bottom:4px;">${param.time}</div>
-      <div>開盤 Open：${fmt(candle.open)}</div>
-      <div>收盤 Close：${fmt(candle.close)}</div>
-      <div>最高 MAX：${fmt(candle.high)}</div>
-      <div>最低 MIN：${fmt(candle.low)}</div>
-      <div>${legendSwatch(MID_COLOR)}BOLL_MID：${fmt(mid?.value)}</div>
+      <div style="font-weight:600;margin-bottom:4px;">${row.DATE}</div>
+      <div>開盤 Open：${fmt(row.OPEN)}</div>
+      <div>收盤 Close：${fmt(row.CLOSE)}</div>
+      <div>最高 MAX：${fmt(row.MAX)}</div>
+      <div>最低 MIN：${fmt(row.MIN)}</div>
+      <div>${legendSwatch(MID_COLOR)}BOLL_MID：${fmt(row.BOLL_MID)}</div>
       ${bandRows}
     `;
-    positionTooltip(tooltip, container, param.point);
+    positionTooltip(tooltip, container, point);
+  };
+
+  const updateTooltip = param => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    if (lockRef.current?.locked) {
+      applyCrosshair(lockRef.current.time);
+      return;
+    }
+
+    if (!param?.time || isOutOfBounds(param, container)) {
+      showTooltip(null);
+      sync?.broadcastCrosshair(PANE_ID, null);
+      return;
+    }
+
+    const row = dataRef.current.find(r => r.DATE === param.time);
+    showTooltip(row, param.point);
+    sync?.broadcastCrosshair(PANE_ID, param.time);
+  };
+
+  const applyCrosshair = time => {
+    const chart = chartRef.current;
+    const candleSeries = candleSeriesRef.current;
+    if (!chart || !candleSeries) return;
+
+    const row = time == null ? null : dataRef.current.find(r => r.DATE === time);
+    const x = row ? chart.timeScale().timeToCoordinate(time) : null;
+
+    if (!row || x == null || row.CLOSE == null) {
+      showTooltip(null);
+      chart.clearCrosshairPosition();
+      return;
+    }
+
+    chart.setCrosshairPosition(row.CLOSE, time, candleSeries);
+    showTooltip(row, { x, y: 8 });
+  };
+
+  const applyRange = range => {
+    const chart = chartRef.current;
+    if (!chart || !range) return;
+
+    const current = chart.timeScale().getVisibleLogicalRange();
+    if (current && Math.abs(current.from - range.from) < 1e-6 && Math.abs(current.to - range.to) < 1e-6) return;
+    chart.timeScale().setVisibleLogicalRange(range);
   };
 
   useEffect(() => {
@@ -101,8 +154,14 @@ const BollingerChart = ({ data }) => {
     midSeriesRef.current = chart.addSeries(LineSeries, { color: MID_COLOR, lineWidth: 1, lineStyle: LineStyle.Dashed });
 
     chart.subscribeCrosshairMove(updateTooltip);
+    chart.timeScale().subscribeVisibleLogicalRangeChange(range => {
+      if (range) sync?.broadcastRange(PANE_ID, range);
+    });
+    chart.subscribeClick(param => sync?.toggleLock(param?.time ?? null));
+    sync?.registerPane(PANE_ID, { applyCrosshair, applyRange });
 
     return () => {
+      sync?.unregisterPane(PANE_ID);
       chart.remove();
       chartRef.current = null;
       candleSeriesRef.current = null;
@@ -110,6 +169,18 @@ const BollingerChart = ({ data }) => {
       bandSeriesRef.current = [];
     };
   }, []);
+
+  useEffect(() => {
+    const chart = chartRef.current;
+    if (!chart) return;
+
+    if (sync?.lock?.locked) {
+      chart.applyOptions({ handleScroll: false, handleScale: false });
+      applyCrosshair(sync.lock.time);
+    } else {
+      chart.applyOptions({ handleScroll: true, handleScale: true });
+    }
+  }, [sync?.lock?.locked, sync?.lock?.time]);
 
   useEffect(() => {
     const chart = chartRef.current;

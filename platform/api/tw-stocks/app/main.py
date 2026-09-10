@@ -1,9 +1,14 @@
+import logging
+
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
 from app.errors import AppError
 from app.routers import stocks
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 app = FastAPI(title="TW Stocks API", version="0.1.0")
 
@@ -16,7 +21,18 @@ def _error_response(status_code: int, code: str, message: str) -> JSONResponse:
 
 @app.exception_handler(AppError)
 def handle_app_error(request: Request, exc: AppError) -> JSONResponse:
+    logger.warning("AppError on %s %s: [%s] %s", request.method, request.url.path, exc.code, exc.message)
     return _error_response(exc.status_code, exc.code, exc.message)
+
+
+@app.exception_handler(Exception)
+def handle_unexpected_error(request: Request, exc: Exception) -> JSONResponse:
+    # Anything that reaches here is a bug or an unhandled upstream failure - log the full
+    # traceback (visible in Render logs) and surface the exception type/message in the
+    # response too, since the client has no other way to see server-side logs.
+    logger.exception("Unhandled error on %s %s", request.method, request.url.path)
+    message = f"{type(exc).__name__}: {exc}"
+    return _error_response(500, "ERR_500", message)
 
 
 @app.exception_handler(RequestValidationError)

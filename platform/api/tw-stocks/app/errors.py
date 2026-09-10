@@ -25,3 +25,10 @@ class InvalidValueError(AppError):
 
     code = "ERR_002"
     status_code = 400
+
+
+class UpstreamError(AppError):
+    """ERR_004 - a dependency (e.g. FinMind) failed while fulfilling the request."""
+
+    code = "ERR_004"
+    status_code = 502
